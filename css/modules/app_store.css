@@ -381,6 +381,11 @@
     background: #fff;
 }
 
+/* 沉浸式 app 自带顶栏，隐藏宿主 runner 顶栏 */
+#store-app-runner-screen.immersive #store-app-runner-header {
+    display: none;
+}
+
 .store-app-runner-body {
     flex: 1;
     overflow: hidden;

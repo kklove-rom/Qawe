@@ -895,6 +895,10 @@
         const titleEl = document.getElementById('store-app-runner-title');
         if (titleEl) titleEl.textContent = app.name;
 
+        // X 自带顶栏和双击菜单退出，隐藏宿主 runner 顶栏，避免两条顶栏重复
+        const runnerScreenEl = document.getElementById('store-app-runner-screen');
+        if (runnerScreenEl) runnerScreenEl.classList.toggle('immersive', app.id === 'sa_x-social');
+
         const iframe = document.getElementById('store-app-runner-iframe');
         if (!iframe) return;
         runnerIframe = iframe;
