@@ -4,10 +4,12 @@
 // 安装的 app 通过 window.UwU 桥接接口调用 AI、读取人设/世界书/聊天记录、向 404 注入消息。
 
 (function () {
-    const STORE_APPS_DIR = 'apps'; // 仓库中存放 zip 的目录
+    const STORE_APPS_DIR = 'apps'; // 仓库中存放 zip 的目录（自定义仓库可改）
+    const STORE_REPO_CONFIG_KEY = 'store_repo_config_v1'; // 自定义同步仓库
     const REMOTE_CACHE_KEY = 'store_remote_apps_cache_v1'; // 远程列表本地缓存，进 store 先秒出
     let remoteApps = [];           // 远程 zip 列表
     let storeLoading = false;
+    let storeFetchSeq = 0;         // 避免切换仓库后旧请求覆盖新列表
     let currentRunnerAppId = null; // 当前运行的 app id
     let runnerIframe = null;       // 当前运行的 iframe 引用
 
@@ -81,14 +83,31 @@
     }
 
     // ============ 工具函数 ============
-    // 仓库来源优先级：1. GitHub备份配置(带token,支持私有仓库) 2. 当前 GitHub Pages 地址自动推断(公开仓库,无需token)
+    // 仓库来源优先级：1. store 自定义仓库 2. GitHub备份配置 3. 当前 GitHub Pages 自动推断
     function getGhConfig() {
+        try {
+            const raw = localStorage.getItem(STORE_REPO_CONFIG_KEY);
+            if (raw) {
+                const c = JSON.parse(raw);
+                if (c && c.repo && /^[^\/\s]+\/[^\/\s]+$/.test(String(c.repo).trim())) {
+                    return {
+                        token: String(c.token || ''),
+                        repo: String(c.repo).trim(),
+                        dir: normalizeDir(c.dir),
+                        branch: String(c.branch || 'main').trim() || 'main',
+                        source: 'custom',
+                        sameOrigin: false
+                    };
+                }
+            }
+        } catch (e) { /* ignore */ }
+
         try {
             const confStr = localStorage.getItem('gh_config');
             if (confStr) {
                 const cfg = JSON.parse(confStr);
                 if (cfg && cfg.token && cfg.repo) {
-                    return { token: cfg.token, repo: cfg.repo, source: 'config', sameOrigin: false };
+                    return { token: cfg.token, repo: cfg.repo, dir: 'apps', branch: 'main', source: 'config', sameOrigin: false };
                 }
             }
         } catch (e) { /* ignore */ }
@@ -98,9 +117,33 @@
             const owner = m[1];
             const seg = location.pathname.split('/').filter(Boolean)[0];
             const repo = seg ? `${owner}/${seg}` : `${owner}/${owner}.github.io`;
-            return { token: '', repo, source: 'pages', sameOrigin: true };
+            return { token: '', repo, dir: 'apps', branch: 'main', source: 'pages', sameOrigin: true };
         }
-        return { token: '', repo: '', source: 'none', sameOrigin: false };
+        return { token: '', repo: '', dir: 'apps', branch: 'main', source: 'none', sameOrigin: false };
+    }
+
+    function normalizeDir(v) {
+        const s = String(v || '').trim().replace(/^\/+|\/+$/g, '');
+        return s || 'apps';
+    }
+    function normalizeRepo(v) {
+        let s = String(v || '').trim();
+        s = s.replace(/^git@github\.com:/i, '')
+            .replace(/^(?:https?:\/\/)?(?:www\.)?github\.com\//i, '')
+            .replace(/\.git$/i, '')
+            .replace(/\/+$/g, '');
+        const parts = s.split('/').filter(Boolean);
+        return parts.length >= 2 ? parts[0] + '/' + parts[1] : s;
+    }
+    function encodePath(p) {
+        return String(p || '').split('/').filter(Boolean).map(encodeURIComponent).join('/');
+    }
+    function rawFileUrl(cfg, file) {
+        const branch = String(cfg.branch || 'main').split('/').map(encodeURIComponent).join('/');
+        return `https://raw.githubusercontent.com/${cfg.repo}/${branch}/${encodePath(cfg.dir)}/${encodePath(file)}`;
+    }
+    function contentsUrl(cfg, path) {
+        return `https://api.github.com/repos/${cfg.repo}/contents/${encodePath(path)}?ref=${encodeURIComponent(cfg.branch)}`;
     }
 
     function ghHeaders(cfg) {
@@ -153,140 +196,190 @@
         return fetch(url, { cache: 'no-store', ...(opts || {}), signal: ctrl.signal }).finally(() => clearTimeout(t));
     }
 
-    function readRemoteCache() {
-        try {
-            const arr = JSON.parse(localStorage.getItem(REMOTE_CACHE_KEY) || '[]');
-            return Array.isArray(arr) ? arr : [];
-        } catch (e) { return []; }
+    function remoteCacheKey(cfg) {
+        return cfg && cfg.repo
+            ? `${REMOTE_CACHE_KEY}:${cfg.repo}:${cfg.dir}:${cfg.branch}`
+            : '';
     }
-    function writeRemoteCache(list) {
-        try { localStorage.setItem(REMOTE_CACHE_KEY, JSON.stringify(list || [])); } catch (e) { /* ignore */ }
+    function readRemoteCache(cfg) {
+        if (!cfg || !cfg.repo) return [];
+        try {
+            const key = remoteCacheKey(cfg);
+            let raw = JSON.parse(localStorage.getItem(key) || 'null');
+            // 兼容上一版只保存一条缓存的数据
+            if (!raw) raw = JSON.parse(localStorage.getItem(REMOTE_CACHE_KEY) || 'null');
+            if (raw && raw.repo === cfg.repo && (raw.dir || 'apps') === cfg.dir && (raw.branch || 'main') === cfg.branch) {
+                return Array.isArray(raw.apps) ? raw.apps : [];
+            }
+        } catch (e) { /* ignore */ }
+        return [];
+    }
+    function writeRemoteCache(cfg, list) {
+        try {
+            const key = remoteCacheKey(cfg);
+            if (!key) return;
+            localStorage.setItem(key, JSON.stringify({
+                repo: cfg.repo, dir: cfg.dir, branch: cfg.branch, apps: list || []
+            }));
+        } catch (e) { /* ignore */ }
     }
 
-    // 当前是否运行在 github.io（是则 apps/index.json 可同源直取，走 CDN 最快）
-    function onGhPages() {
-        return /^([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)\.github\.io$/i.test(location.hostname);
+    function appsFromIndex(idx, cfg) {
+        return (idx.apps || []).filter(a => a && a.file).map(a => ({
+            name: a.file,
+            displayName: a.name || a.file,
+            size: a.size || 0,
+            sha: a.sha || '',
+            version: a.version || '',
+            downloadUrl: cfg.sameOrigin ? `${cfg.dir}/${a.file}` : rawFileUrl(cfg, a.file),
+            path: `${cfg.dir}/${a.file}`,
+            sameOrigin: cfg.sameOrigin
+        }));
+    }
+    function appsFromDirectory(files, cfg) {
+        return (Array.isArray(files) ? files : [])
+            .filter(f => f.type === 'file' && /\.zip$/i.test(f.name))
+            .map(f => ({
+                name: f.name,
+                displayName: f.name,
+                size: f.size || 0,
+                sha: f.sha || '',
+                version: '',
+                downloadUrl: cfg.sameOrigin ? `${cfg.dir}/${f.name}` : rawFileUrl(cfg, f.name),
+                path: f.path || `${cfg.dir}/${f.name}`,
+                sameOrigin: cfg.sameOrigin
+            }));
+    }
+
+    async function fetchStoreIndex(cfg) {
+        if (cfg.sameOrigin) {
+            const r = await fetchWithTimeout(`${encodePath(cfg.dir)}/index.json?v=${Date.now()}`, null, 8000);
+            if (!r.ok) return null;
+            return r.json();
+        }
+        if (!cfg.token) {
+            try {
+                const r = await fetchWithTimeout(rawFileUrl(cfg, 'index.json'), null, 8000);
+                if (r.ok) return r.json();
+            } catch (e) { /* fallback API */ }
+        }
+        const r = await fetchWithTimeout(contentsUrl(cfg, `${cfg.dir}/index.json`), {
+            headers: Object.assign({}, ghHeaders(cfg), { 'Accept': 'application/vnd.github.v3.raw' })
+        }, 8000);
+        if (r.ok) return r.json();
+        // Token 失效时，公开仓库仍然可以回退 raw 地址
+        if (cfg.token) {
+            try {
+                const raw = await fetchWithTimeout(rawFileUrl(cfg, 'index.json'), null, 8000);
+                if (raw.ok) return raw.json();
+            } catch (e) { /* ignore */ }
+        }
+        return null;
+    }
+
+    async function fetchStoreDirectory(cfg) {
+        const res = await fetchWithTimeout(contentsUrl(cfg, cfg.dir), { headers: ghHeaders(cfg) }, 8000);
+        if (res.status === 404) {
+            throw new Error(`仓库或目录不存在：${cfg.repo}/${cfg.dir}（私有仓库请填 Token）`);
+        }
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            if (res.status === 403 && !cfg.token) {
+                throw new Error('GitHub API 限流（60次/小时），请稍后再试或填写 Token');
+            }
+            throw new Error(err.message || `GitHub API ${res.status}`);
+        }
+        const files = await res.json();
+        return appsFromDirectory(files, cfg);
     }
 
     // ============ GitHub 同步 ============
     async function fetchRemoteApps(manual = false) {
         const cfg = getGhConfig();
+        const seq = ++storeFetchSeq;
         renderStoreRepoCard();
         if (!cfg.repo) {
             remoteApps = [];
+            storeLoading = false;
             renderRemoteList();
-            if (manual) showToast('未找到仓库：请部署到 GitHub Pages 或在 教程→GitHub备份 中配置');
+            if (manual) showToast('请先设置同步仓库：username/仓库名 + 目录 apps');
             return;
         }
-        if (storeLoading) return;
         storeLoading = true;
         renderRemoteList();
         try {
             let apps = null;
             let fromIndex = false;
-            // 1) 优先同源清单 apps/index.json（走 Pages CDN，速度快，不占 API 限流）
-            //    只要运行在 github.io 就先试这条，即使配了 GitHub备份（备份配置可能指向旧仓库）
-            if (onGhPages()) {
-                try {
-                    const r = await fetchWithTimeout(`${STORE_APPS_DIR}/index.json?v=${Date.now()}`, null, 8000);
-                    if (r.ok) {
-                        const idx = await r.json();
-                        if (idx && Array.isArray(idx.apps)) {
-                            apps = idx.apps.filter(a => a && a.file).map(a => ({
-                                name: a.file,
-                                size: a.size || 0,
-                                sha: a.sha || '',
-                                version: a.version || '',
-                                downloadUrl: `${STORE_APPS_DIR}/${a.file}`,
-                                path: `${STORE_APPS_DIR}/${a.file}`,
-                                sameOrigin: true
-                            }));
-                            fromIndex = true;
-                        }
-                    }
-                } catch (e) { /* 清单不存在或网络问题时回退 API */ }
-            }
-            // 2) 回退 GitHub API 列目录（国内访问较慢，仅作兜底）
+            try {
+                const idx = await fetchStoreIndex(cfg);
+                if (idx && Array.isArray(idx.apps)) {
+                    apps = appsFromIndex(idx, cfg);
+                    fromIndex = true;
+                }
+            } catch (e) { /* 清单不存在或网络问题时回退目录 */ }
             if (!apps) {
-                const url = `https://api.github.com/repos/${cfg.repo}/contents/${STORE_APPS_DIR}`;
-                const res = await fetchWithTimeout(url, { headers: ghHeaders(cfg) }, 8000);
-                if (res.status === 404) {
-                    remoteApps = [];
-                    renderRemoteList('仓库中还没有 apps 文件夹。把 zip 上传到仓库的 apps/ 目录后，点右上角刷新即可看到。');
-                    return;
-                }
-                if (!res.ok) {
-                    const err = await res.json().catch(() => ({}));
-                    if (res.status === 403 && !cfg.token) {
-                        throw new Error('GitHub 未认证请求限流(60次/小时)，稍后再试或在 GitHub备份 中配置 Token');
-                    }
-                    if (res.status === 404 || (err.message || '').match(/Not Found/i)) {
-                        throw new Error('仓库不存在或为私有仓库(私有需在 GitHub备份 中配置 Token)');
-                    }
-                    throw new Error(err.message || `GitHub API ${res.status}`);
-                }
-                const files = await res.json();
-                apps = (Array.isArray(files) ? files : [])
-                    .filter(f => f.type === 'file' && /\.zip$/i.test(f.name))
-                    .map(f => ({ name: f.name, size: f.size, sha: f.sha, version: '', downloadUrl: f.download_url, path: f.path }));
+                apps = await fetchStoreDirectory(cfg);
             }
+            if (seq !== storeFetchSeq) return; // 已经切换仓库，丢弃旧结果
             remoteApps = apps;
             renderRemoteList();
-            writeRemoteCache(remoteApps);
-            if (manual) showToast(remoteApps.length ? `发现 ${remoteApps.length} 个应用` : 'apps 目录里还没有 zip');
-            // index.json 会被 Pages CDN 缓存（最多约 10 分钟）；后台再用 API 目录补齐刚上传、还没写进清单的 zip
-            if (fromIndex) mergeDirectory(cfg);
+            writeRemoteCache(cfg, remoteApps);
+            if (manual) showToast(remoteApps.length ? `发现 ${remoteApps.length} 个应用` : `${cfg.dir} 目录里还没有 zip`);
+            // 清单可能被 CDN 缓存；后台再用 API 目录补齐刚上传、还没写进清单的 zip
+            if (fromIndex) mergeDirectory(cfg, seq);
         } catch (e) {
+            if (seq !== storeFetchSeq) return;
             console.error('[AppStore] fetch failed:', e);
             renderRemoteList('拉取失败: ' + e.message);
             if (manual) showToast('拉取失败: ' + e.message);
         } finally {
-            storeLoading = false;
+            if (seq === storeFetchSeq) storeLoading = false;
         }
     }
 
     // 用 GitHub API 的目录列表补齐 index.json（后台执行，失败不影响快速通道）
-    async function mergeDirectory(cfg) {
+    async function mergeDirectory(cfg, seq) {
         try {
-            const url = `https://api.github.com/repos/${cfg.repo}/contents/${STORE_APPS_DIR}`;
-            const res = await fetchWithTimeout(url, { headers: ghHeaders(cfg) }, 6000);
-            if (!res.ok) return;
-            const files = await res.json();
-            if (!Array.isArray(files)) return;
-            const apiApps = files
-                .filter(f => f.type === 'file' && /\.zip$/i.test(f.name))
-                .map(f => ({ name: f.name, size: f.size, sha: f.sha, downloadUrl: f.download_url, path: f.path }));
+            const apiApps = await fetchStoreDirectory(cfg);
+            if (seq !== storeFetchSeq) return;
             const byName = {};
             (remoteApps || []).forEach(a => { byName[a.name] = a; });
             const apiByName = {};
             apiApps.forEach(a => { apiByName[a.name] = a; });
             // 保留清单里的应用（即使 API 目录暂时还没刷新），再用 API 的最新 sha/size 覆盖，并追加清单里没有的新 zip
-            const merged = (remoteApps || []).map(old => Object.assign({}, old, apiByName[old.name] || {}));
+            const merged = (remoteApps || []).map(old => {
+                const api = apiByName[old.name] || {};
+                return Object.assign({}, old, api, { displayName: old.displayName || api.displayName || old.name });
+            });
             apiApps.forEach(a => { if (!byName[a.name]) merged.push(a); });
             remoteApps = merged;
             renderRemoteList();
-            writeRemoteCache(remoteApps);
+            writeRemoteCache(cfg, remoteApps);
         } catch (e) { /* 后台补齐失败就保持清单结果 */ }
     }
 
     // ============ 安装 / 卸载 ============
     async function installRemoteApp(remote) {
         const cfg = getGhConfig();
-        showToast('正在下载 ' + remote.name + ' ...');
+        showToast('正在下载 ' + (remote.displayName || remote.name) + ' ...');
         let zipBuf = null;
         try {
-            // 下载 zip：同源 Pages 直接下(不占API限流) > download_url(公开仓库) > contents API raw(私有仓库)
-            if (cfg.sameOrigin || remote.sameOrigin) {
-                const r = await fetchWithTimeout(`${STORE_APPS_DIR}/${remote.name}?v=${encodeURIComponent(remote.sha || remote.version || Date.now())}`, null, 30000);
+            const ver = encodeURIComponent(remote.sha || remote.version || Date.now());
+            // 下载 zip：同源 Pages 直接下 > raw/download_url(公开仓库) > contents API raw(私有仓库)
+            if (cfg.sameOrigin) {
+                const r = await fetchWithTimeout(`${encodePath(cfg.dir)}/${encodePath(remote.name)}?v=${ver}`, null, 30000);
                 if (r.ok) zipBuf = await r.arrayBuffer();
             }
-            if (!zipBuf && remote.downloadUrl && !cfg.token) {
-                const r = await fetchWithTimeout(remote.downloadUrl, null, 30000);
+            // 先试公开 raw 地址；私有仓库会 404，再走下面带 Token 的 contents API
+            if (!zipBuf && remote.downloadUrl) {
+                const sep = remote.downloadUrl.includes('?') ? '&' : '?';
+                const r = await fetchWithTimeout(`${remote.downloadUrl}${sep}v=${ver}`, null, 30000);
                 if (r.ok) zipBuf = await r.arrayBuffer();
             }
             if (!zipBuf) {
-                const blobRes = await fetchWithTimeout(`https://api.github.com/repos/${cfg.repo}/contents/${encodeURIComponent(remote.path)}`, {
-                    headers: { ...ghHeaders(cfg), 'Accept': 'application/vnd.github.v3.raw' }
+                const path = remote.path || `${cfg.dir}/${remote.name}`;
+                const blobRes = await fetchWithTimeout(contentsUrl(cfg, path), {
+                    headers: Object.assign({}, ghHeaders(cfg), { 'Accept': 'application/vnd.github.v3.raw' })
                 }, 30000);
                 if (!blobRes.ok) throw new Error('下载失败: HTTP ' + blobRes.status);
                 zipBuf = await blobRes.arrayBuffer();
@@ -453,48 +546,157 @@
         if (cfg.repo) {
             const sourceLabel = cfg.source === 'pages'
                 ? '自动检测 · 无需 Token'
-                : 'GitHub备份配置';
+                : cfg.source === 'custom'
+                    ? '自定义仓库'
+                    : 'GitHub备份配置';
+            const branchHtml = cfg.branch && cfg.branch !== 'main'
+                ? ` · 分支 ${escapeHtml(cfg.branch)}`
+                : '';
             el.innerHTML = `
                 <div class="repo-info">
-                    <div class="repo-label">同步仓库 · ${sourceLabel}</div>
-                    <div class="repo-name">${escapeHtml(cfg.repo)}<span class="repo-dir">/${STORE_APPS_DIR}</span></div>
+                    <div class="repo-label">同步仓库 · ${sourceLabel}${branchHtml}</div>
+                    <div class="repo-name">${escapeHtml(cfg.repo)}<span class="repo-dir">/${escapeHtml(cfg.dir)}</span></div>
                 </div>
-                <div class="repo-ok">已连接</div>
+                <div class="repo-actions">
+                    <span class="repo-ok">已连接</span>
+                    <button class="repo-change" id="app-store-change-repo">更改</button>
+                </div>
             `;
         } else {
             el.innerHTML = `
                 <div class="repo-info">
                     <div class="repo-label">同步仓库</div>
-                    <div class="repo-name repo-warn">未检测到仓库</div>
+                    <div class="repo-name repo-warn">未设置仓库</div>
                 </div>
-                <button class="app-store-btn" id="app-store-goto-gh">去配置</button>
+                <button class="repo-change" id="app-store-change-repo">设置</button>
             `;
-            const btn = document.getElementById('app-store-goto-gh');
-            if (btn) btn.addEventListener('click', () => {
-                if (typeof switchScreen === 'function') switchScreen('tutorial-screen');
-                showToast('请在 教程 → GitHub备份 中填写 Token 与仓库');
-            });
         }
+        const btn = document.getElementById('app-store-change-repo');
+        if (btn) btn.addEventListener('click', openStoreRepoSettings);
+    }
+
+    // 自定义同步仓库弹窗：仓库(owner/repo) + 目录(默认 apps) + 分支 + 可选 Token
+    function openStoreRepoSettings() {
+        const old = document.getElementById('store-repo-overlay');
+        if (old) old.remove();
+
+        const cfg = getGhConfig();
+        const repoValue = escapeHtml(cfg.repo || '');
+        const dirValue = escapeHtml(cfg.dir || STORE_APPS_DIR);
+        const branchValue = escapeHtml(cfg.branch || 'main');
+        // 自定义仓库才回填 Token；从旧的 GitHub 备份配置切过来时不要误带旧 Token
+        const tokenValue = cfg.source === 'custom' ? escapeHtml(cfg.token || '') : '';
+
+        const overlay = document.createElement('div');
+        overlay.id = 'store-repo-overlay';
+        overlay.className = 'store-repo-overlay';
+        overlay.innerHTML = `
+            <div class="store-repo-sheet">
+                <div class="store-repo-head">
+                    <div class="store-repo-title">同步仓库</div>
+                    <button class="store-repo-close" data-repo-act="cancel" aria-label="关闭">×</button>
+                </div>
+                <div class="store-repo-tip">填写 GitHub 仓库和应用目录。默认目录是 <b>apps</b>，把 zip 上传到 <b>仓库/apps/</b> 即可自动拉取；以后可随时更改。</div>
+                <label class="store-repo-field">
+                    <span>仓库（username/仓库名）</span>
+                    <input id="store-repo-input" type="text" placeholder="username/仓库名" value="${repoValue}" autocomplete="off" spellcheck="false">
+                </label>
+                <div class="store-repo-row">
+                    <label class="store-repo-field">
+                        <span>应用目录</span>
+                        <input id="store-repo-dir" type="text" placeholder="apps" value="${dirValue}" autocomplete="off" spellcheck="false">
+                    </label>
+                    <label class="store-repo-field">
+                        <span>分支</span>
+                        <input id="store-repo-branch" type="text" placeholder="main" value="${branchValue}" autocomplete="off" spellcheck="false">
+                    </label>
+                </div>
+                <label class="store-repo-field">
+                    <span>Token（可选，私有仓库或 API 限流时填写）</span>
+                    <input id="store-repo-token" type="password" placeholder="留空即可" value="${tokenValue}" autocomplete="off" spellcheck="false">
+                </label>
+                <div class="store-repo-path">路径：<span id="store-repo-path"></span></div>
+                <div class="store-repo-actions">
+                    <button class="store-repo-btn ghost" data-repo-act="auto">恢复自动检测</button>
+                    <button class="store-repo-btn primary" data-repo-act="save">保存并同步</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        const repoInput = document.getElementById('store-repo-input');
+        const dirInput = document.getElementById('store-repo-dir');
+        const branchInput = document.getElementById('store-repo-branch');
+        const tokenInput = document.getElementById('store-repo-token');
+        const pathEl = document.getElementById('store-repo-path');
+
+        const updatePath = () => {
+            const repo = normalizeRepo(repoInput.value) || 'username/仓库名';
+            const dir = normalizeDir(dirInput.value);
+            pathEl.textContent = `${repo}/${dir}`;
+        };
+        repoInput.addEventListener('input', updatePath);
+        dirInput.addEventListener('input', updatePath);
+        updatePath();
+
+        const close = () => overlay.remove();
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) close();
+        });
+
+        overlay.querySelector('[data-repo-act="cancel"]').addEventListener('click', close);
+        overlay.querySelector('[data-repo-act="auto"]').addEventListener('click', () => {
+            localStorage.removeItem(STORE_REPO_CONFIG_KEY);
+            close();
+            showToast('已恢复自动检测仓库');
+            remoteApps = readRemoteCache(getGhConfig());
+            renderStoreRepoCard();
+            renderRemoteList();
+            fetchRemoteApps(true);
+        });
+        overlay.querySelector('[data-repo-act="save"]').addEventListener('click', () => {
+            const repo = normalizeRepo(repoInput.value);
+            if (!/^[^\/\s]+\/[^\/\s]+$/.test(repo)) {
+                showToast('仓库格式应填 username/仓库名');
+                repoInput.focus();
+                return;
+            }
+            const dir = normalizeDir(dirInput.value);
+            const branch = branchInput.value.trim() || 'main';
+            const token = tokenInput.value.trim();
+            try {
+                localStorage.setItem(STORE_REPO_CONFIG_KEY, JSON.stringify({ repo, dir, branch, token }));
+            } catch (e) {
+                showToast('保存失败: ' + e.message);
+                return;
+            }
+            close();
+            showToast('已保存，正在同步...');
+            remoteApps = readRemoteCache(getGhConfig());
+            renderStoreRepoCard();
+            renderRemoteList();
+            fetchRemoteApps(true);
+        });
     }
 
     function renderRemoteList(errorMsg) {
         const el = document.getElementById('app-store-remote-list');
         if (!el) return;
-        if (storeLoading && !remoteApps.length) {
-            el.innerHTML = '<div class="app-store-empty">正在从 GitHub 拉取...</div>';
-            return;
-        }
         if (errorMsg && !remoteApps.length) {
             el.innerHTML = `<div class="app-store-empty">${escapeHtml(errorMsg)}</div>`;
             return;
         }
+        if (storeLoading && !remoteApps.length) {
+            el.innerHTML = '<div class="app-store-empty">正在从 GitHub 拉取...</div>';
+            return;
+        }
         const cfg = getGhConfig();
         if (!cfg.repo) {
-            el.innerHTML = '<div class="app-store-empty">部署到 GitHub Pages 后，仓库 apps/ 目录里的 zip 会自动显示在这里</div>';
+            el.innerHTML = '<div class="app-store-empty">点上方「设置」填写同步仓库，例如 <b>username/仓库名</b>，应用目录填 <b>apps</b>。</div>';
             return;
         }
         if (!remoteApps.length) {
-            el.innerHTML = '<div class="app-store-empty">未发现 zip 应用。上传 zip 到仓库 apps/ 目录后点刷新。</div>';
+            el.innerHTML = `<div class="app-store-empty">未发现 zip 应用。把 zip 上传到 <b>${escapeHtml(cfg.repo)}/${escapeHtml(cfg.dir)}/</b> 后点右上角刷新。</div>`;
             return;
         }
         el.innerHTML = remoteApps.map(r => {
@@ -512,14 +714,16 @@
             } else {
                 actionHtml = `<button class="app-store-btn" data-action="install" data-name="${escapeHtml(r.name)}">安装</button>`;
             }
+            const label = r.displayName || r.name;
+            const meta = [formatSize(r.size), r.version ? 'v' + r.version : ''].filter(Boolean).join(' · ');
             return `
                 <div class="app-store-item">
                     <div class="app-store-item-icon zip-icon">
                         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v13H3V8"></path><path d="M1 3h22v5H1z"></path><path d="M10 12h4"></path></svg>
                     </div>
                     <div class="app-store-item-info">
-                        <div class="app-store-item-name">${escapeHtml(r.name)}</div>
-                        <div class="app-store-item-meta">${formatSize(r.size)}</div>
+                        <div class="app-store-item-name">${escapeHtml(label)}</div>
+                        <div class="app-store-item-meta">${escapeHtml(meta)}</div>
                     </div>
                     ${actionHtml}
                 </div>
@@ -870,8 +1074,8 @@
             }
         });
 
-        // 初次渲染：先用上次缓存的远程列表秒出，再后台刷新
-        remoteApps = readRemoteCache();
+        // 初次渲染：先用当前仓库的缓存秒出，再后台刷新
+        remoteApps = readRemoteCache(getGhConfig());
         renderStoreRepoCard();
         renderRemoteList();
         renderInstalledList();

@@ -60,6 +60,175 @@
     border-radius: 20px;
 }
 
+.repo-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.repo-change {
+    border: 1px solid #e2e2e6;
+    background: #fff;
+    color: #555;
+    font-size: 11px;
+    padding: 5px 11px;
+    border-radius: 14px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.repo-change:active {
+    background: #f2f2f4;
+}
+
+/* 自定义同步仓库弹窗 */
+.store-repo-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.42);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+}
+
+.store-repo-sheet {
+    width: 100%;
+    max-width: 420px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-sizing: border-box;
+    background: #fff;
+    border-radius: 20px 20px 0 0;
+    padding: 20px 18px calc(20px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.18);
+    animation: storeRepoUp 0.18s ease-out;
+}
+
+@keyframes storeRepoUp {
+    from { transform: translateY(24px); opacity: 0.6; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.store-repo-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.store-repo-title {
+    font-size: 17px;
+    font-weight: 600;
+    color: #222;
+}
+
+.store-repo-close {
+    border: none;
+    background: transparent;
+    color: #999;
+    font-size: 24px;
+    line-height: 1;
+    padding: 0 4px;
+    cursor: pointer;
+}
+
+.store-repo-tip {
+    font-size: 12px;
+    color: #999;
+    line-height: 1.6;
+    margin-bottom: 14px;
+}
+
+.store-repo-tip b {
+    color: #666;
+    font-weight: 600;
+}
+
+.store-repo-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+    margin-bottom: 12px;
+}
+
+.store-repo-field > span {
+    font-size: 12px;
+    color: #666;
+}
+
+.store-repo-field input {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #e5e5ea;
+    background: #f7f7f9;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 14px;
+    color: #333;
+    outline: none;
+    -webkit-appearance: none;
+}
+
+.store-repo-field input:focus {
+    border-color: var(--primary-color, #2a9d8f);
+    background: #fff;
+}
+
+.store-repo-row {
+    display: flex;
+    gap: 10px;
+}
+
+.store-repo-path {
+    font-size: 11px;
+    color: #999;
+    background: #f7f7f9;
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin: 2px 0 14px;
+    word-break: break-all;
+}
+
+.store-repo-path span {
+    color: #666;
+}
+
+.store-repo-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.store-repo-btn {
+    border: none;
+    border-radius: 12px;
+    padding: 11px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.store-repo-btn:active {
+    opacity: 0.8;
+}
+
+.store-repo-btn.ghost {
+    background: #f0f0f2;
+    color: #666;
+}
+
+.store-repo-btn.primary {
+    flex: 1;
+    background: var(--primary-color, #2a9d8f);
+    color: #fff;
+}
+
 /* 本地 zip 安装 */
 .app-store-local-card {
     display: flex;

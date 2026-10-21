@@ -93,10 +93,30 @@
 - **应用数据存哪？** localStorage（记得加前缀）。卸载应用不会清 localStorage。
 - **上传后 store 看不到？** 确认 zip 传在仓库 `apps/` 文件夹内、app.json 在 zip 根目录、JSON 无语法错误。
 
+## 自定义同步仓库（重要）
+
+store 不再固定只读当前部署仓库，可以随时切换成任意 GitHub 仓库：
+
+1. 打开 store，点右上仓库卡片里的「更改」。
+2. 仓库填 `username/仓库名`（例如你新建的 `你的用户名/a`），应用目录默认 `apps`，分支默认 `main`。
+3. 把 zip 上传到该仓库的 `apps/` 目录，点「保存并同步」，store 会自动拉取并显示。
+4. 以后想换仓库，再点「更改」即可；点「恢复自动检测」会回到当前 Pages 仓库。
+
+示例路径：
+
+```text
+username/仓库名/apps
+```
+
+- 公开仓库不需要 Token；私有仓库、或者遇到 GitHub API 限流，可以在弹窗里填 Token。
+- 仓库里没有 `apps/index.json` 也能用：store 会回退到 GitHub API 列目录；但有 `index.json` 时列表更快，也更稳定。
+- 默认目录是 `apps`，也可以改成 `apps/sub` 之类的子目录；分支不是 `main` 时同步修改分支。
+- **只上传打包好的 zip 和 `apps/index.json`，不要上传 `_src` 源码/预览文件夹。**
+
 ## 上传新应用的正确姿势（重要）
 
 store 拉取列表有两条通道：
-1. **快速通道（推荐）**：仓库 `apps/index.json` 清单。打开 store 秒出列表（走 Pages CDN，国内快）
+1. **快速通道（推荐）**：仓库 `apps/index.json` 清单。打开 store 秒出列表（Pages 仓库走 CDN；自定义仓库走 raw.githubusercontent，国内通常比 API 快）
 2. **兜底通道**：GitHub API 实时列目录（国内慢，可能卡几秒到几十秒）
 
 所以**每次上传/更新/删除 zip 后，记得同步编辑仓库里的 `apps/index.json`**，格式：
@@ -112,5 +132,6 @@ store 拉取列表有两条通道：
 
 - `file` 必须和 zip 文件名完全一致（含中文名也可以）
 - 更新应用时把 `version` 号改大，store 里会显示"更新"按钮
-- 忘了更新 index.json 也没关系：store 会自动回退到 GitHub API 通道，只是慢
+- 忘了更新 index.json 也不会丢应用：store 会先用 index.json 秒出列表，再在后台用 GitHub API 目录补上刚上传的新 zip；但没有简介/版本，而且 API 通道较慢，所以仍建议同步 index.json
 - index.json 可以在 GitHub 网页直接编辑：仓库 → apps → index.json → 右上角铅笔图标
+- **不要把 `_src` 结尾的源码/预览文件夹提交到仓库**；仓库根目录的 `.gitignore` 已忽略 `*_src/`，只上传打包好的 zip 和 `apps/index.json`
