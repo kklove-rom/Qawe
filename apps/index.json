@@ -4,10 +4,10 @@
       "file": "x-social.zip",
       "name": "X",
       "desc": "在 X 上和 char、NPC 互动：大小号、秘密设定、动态与私信",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "kk",
-      "size": 31743,
-      "sha": "0a9469f01a5b2a13d6b93ded9c112396d0242d1cf01c8ae4a5fe5e32ad77a205"
+      "size": 31580,
+      "sha": "8923fa53c4b45e098ebe3cee714108e44f975f6db247448653db20046a371bb7"
     }
   ]
 }
