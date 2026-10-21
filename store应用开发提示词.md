@@ -109,8 +109,7 @@ store 不再固定只读当前部署仓库，可以随时切换成任意 GitHub 
 ```text
 apps/defaults/
   index.json
-  daily-fortune.zip   → store 显示名 test
-  test-app.zip        → store 显示名 拉取桥接测试
+  test-app.zip        → store 显示名 拉取桥接测试（作者：淡盐）
 ```
 
 - 默认应用清单和自定义仓库分开加载，按 zip 文件名去重，默认应用优先。

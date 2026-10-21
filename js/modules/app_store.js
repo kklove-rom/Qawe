@@ -8,7 +8,7 @@
     const DEFAULT_APPS_DIR = 'apps/defaults'; // 小手机自带的固定默认应用（同源）
     const STORE_REPO_CONFIG_KEY = 'store_repo_config_v1'; // 自定义同步仓库
     const REMOTE_CACHE_KEY = 'store_remote_apps_cache_v1'; // 远程列表本地缓存，进 store 先秒出
-    const DEFAULT_CACHE_KEY = 'store_default_apps_cache_v1'; // 默认应用列表缓存
+    const DEFAULT_CACHE_KEY = 'store_default_apps_cache_v2'; // 默认应用列表缓存
     let remoteApps = [];           // 默认应用 + 自定义仓库应用的合并列表
     let defaultApps = [];          // 固定默认应用
     let customApps = [];           // 自定义仓库应用
