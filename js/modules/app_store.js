@@ -33,6 +33,11 @@
             </header>
             <div class="app-store-body">
                 <div class="app-store-repo-card" id="app-store-repo-card"></div>
+                <div class="app-store-local-card">
+                    <button class="app-store-btn" id="app-store-local-install-btn">＋ 本地 zip 安装</button>
+                    <div class="app-store-local-tip">不经过 GitHub：把应用 zip 传到手机，直接选文件安装</div>
+                </div>
+                <input type="file" id="app-store-local-file" accept=".zip,application/zip,application/x-zip-compressed" style="display:none">
                 <div class="app-store-section-title">远程应用 (GitHub)</div>
                 <div id="app-store-remote-list" class="app-store-list"></div>
                 <div class="app-store-section-title">已安装</div>
@@ -60,6 +65,17 @@
 
         document.getElementById('app-store-refresh-btn').addEventListener('click', () => {
             fetchRemoteApps(true);
+        });
+
+        // 本地 zip 安装
+        const localFileInput = document.getElementById('app-store-local-file');
+        document.getElementById('app-store-local-install-btn').addEventListener('click', () => {
+            localFileInput.click();
+        });
+        localFileInput.addEventListener('change', () => {
+            const f = localFileInput.files && localFileInput.files[0];
+            localFileInput.value = '';
+            if (f) installLocalZipFile(f);
         });
     }
 
@@ -216,9 +232,9 @@
     async function installRemoteApp(remote) {
         const cfg = getGhConfig();
         showToast('正在下载 ' + remote.name + ' ...');
+        let zipBuf = null;
         try {
             // 下载 zip：同源 Pages 直接下(不占API限流) > download_url(公开仓库) > contents API raw(私有仓库)
-            let zipBuf = null;
             if (cfg.sameOrigin || remote.sameOrigin) {
                 const r = await fetchWithTimeout(`${STORE_APPS_DIR}/${remote.name}`, null, 30000);
                 if (r.ok) zipBuf = await r.arrayBuffer();
@@ -234,7 +250,29 @@
                 if (!blobRes.ok) throw new Error('下载失败: HTTP ' + blobRes.status);
                 zipBuf = await blobRes.arrayBuffer();
             }
+        } catch (e) {
+            console.error('[AppStore] download failed:', e);
+            showToast('下载失败: ' + e.message + '（可改用"本地 zip 安装"）');
+            return;
+        }
+        await installFromZipBuffer(zipBuf, remote.name, remote.sha || '');
+    }
 
+    // 本地 zip 安装：不经过 GitHub，直接把 zip 文件装进小手机
+    async function installLocalZipFile(file) {
+        showToast('正在读取 ' + file.name + ' ...');
+        try {
+            const buf = await file.arrayBuffer();
+            await installFromZipBuffer(buf, file.name, '');
+        } catch (e) {
+            console.error('[AppStore] local install failed:', e);
+            showToast('安装失败: ' + e.message);
+        }
+    }
+
+    // 解压 zip 并安装（远程下载与本地安装共用）
+    async function installFromZipBuffer(zipBuf, sourceName, sourceSha) {
+        try {
             showToast('正在解压...');
             const zip = await JSZip.loadAsync(zipBuf);
 
@@ -293,12 +331,12 @@
             }
             if (!icon) icon = defaultIcons['app-store-screen'].url;
 
-            const appId = 'sa_' + (manifest.id || remote.name.replace(/\.zip$/i, '')).replace(/[^\w\-]/g, '_');
+            const appId = 'sa_' + (manifest.id || sourceName.replace(/\.zip$/i, '')).replace(/[^\w\-]/g, '_');
             const record = {
                 id: appId,
-                zipName: remote.name,
-                sha: remote.sha,
-                name: manifest.name || remote.name.replace(/\.zip$/i, ''),
+                zipName: sourceName,
+                sha: sourceSha,
+                name: manifest.name || sourceName.replace(/\.zip$/i, ''),
                 desc: manifest.desc || manifest.description || '',
                 version: manifest.version || '1.0.0',
                 author: manifest.author || '',
@@ -309,7 +347,7 @@
             };
 
             if (!Array.isArray(db.installedStoreApps)) db.installedStoreApps = [];
-            const existIdx = db.installedStoreApps.findIndex(a => a.id === appId || a.zipName === remote.name);
+            const existIdx = db.installedStoreApps.findIndex(a => a.id === appId || a.zipName === sourceName);
             if (existIdx >= 0) db.installedStoreApps[existIdx] = record;
             else db.installedStoreApps.push(record);
 
@@ -321,7 +359,6 @@
         } catch (e) {
             console.error('[AppStore] install failed:', e);
             showToast('安装失败: ' + e.message);
-            alert('安装失败: ' + e.message);
         }
     }
 
