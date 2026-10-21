@@ -2391,7 +2391,7 @@ function renderCustomizeForm() {
     const iconOrder = [
         'chat-list-screen', 'api-settings-screen', 'wallpaper-screen',
         'world-book-screen', 'customize-screen', 'tutorial-screen',
-        'day-mode-btn', 'night-mode-btn', 'forum-screen', 'music-screen', 'pomodoro-screen', 'storage-analysis-screen', 'widget-market-screen'
+        'day-mode-btn', 'night-mode-btn', 'forum-screen', 'pomodoro-screen', 'storage-analysis-screen', 'widget-market-screen', 'app-store-screen'
     ];
 
     let iconsContentHTML = '';

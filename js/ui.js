@@ -483,7 +483,7 @@ function setupHomeScreen() {
         'app-customize': `<div class="grid-item-1x1" data-id="app-customize"><a href="#" class="app-icon" data-target="customize-screen"><img src="${getIcon('customize-screen')}" alt="Customize" class="icon-img"><span class="app-name">${defaultIcons['customize-screen'].name}</span></a></div>`,
         'app-tutorial': `<div class="grid-item-1x1" data-id="app-tutorial"><a href="#" class="app-icon" data-target="tutorial-screen"><img src="${getIcon('tutorial-screen')}" alt="Tutorial" class="icon-img"><span class="app-name">${defaultIcons['tutorial-screen'].name}</span></a></div>`,
         'app-widget-market': `<div class="grid-item-1x1" data-id="app-widget-market"><a href="#" class="app-icon" data-target="widget-market-screen"><img src="${getIcon('widget-market-screen')}" alt="小组件" class="icon-img"><span class="app-name">小组件</span></a></div>`,
-        'app-store': `<div class="grid-item-1x1" data-id="app-store"><a href="#" class="app-icon" data-target="app-store-screen"><img src="${getIcon('app-store-screen')}" alt="store" class="icon-img"><span class="app-name">${defaultIcons['app-store-screen'].name}</span></a></div>`
+        'app-store': `<div class="grid-item-1x1" data-id="app-store"><a href="#" class="app-icon" data-target="app-store-screen"><img src="${getIcon('app-store-screen')}" alt="Store" class="icon-img"><span class="app-name">${defaultIcons['app-store-screen'].name}</span></a></div>`
     };
 
     // 注入从 store 安装的第三方应用图标

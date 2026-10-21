@@ -52,11 +52,15 @@ function showUpdateModal() {
     latestLog.notes.forEach(note => {
         // 处理加粗标记 **text** -> <b>text</b>
         let formattedNote = note.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+        const trimmedNote = note.trim();
 
-        if (note.includes('————')) {
-            // 分割线
+        if (/^[—\-]{3,}$/.test(trimmedNote)) {
+            // 纯分割线
             notesHtml += '<hr style="margin: 15px 0; border: 0; border-top: 1px dashed #ccc;">';
-        } else if (/^\d+\./.test(note)) {
+        } else if (trimmedNote.includes('————')) {
+            // 带文字的分隔标题，例如 “———— QA机 ————”
+            notesHtml += `<h3 style="margin: 15px 0 8px; color: var(--primary-color); font-size: 16px; text-align: center;">${formattedNote}</h3>`;
+        } else if (/^\d+\./.test(trimmedNote)) {
             // 标题行 (例如 "1.日记功能升级！")
             notesHtml += `<h4 style="margin: 15px 0 8px; color: #333; font-size: 15px; font-weight: 600;">${formattedNote}</h4>`;
         } else {

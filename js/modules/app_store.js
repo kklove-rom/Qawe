@@ -30,7 +30,7 @@
             <header class="app-header">
                 <button class="back-btn" data-target="home-screen">‹</button>
                 <div class="title-container">
-                    <h1 class="title">store</h1>
+                    <h1 class="title">Store</h1>
                 </div>
                 <div class="action-btn-group">
                     <button class="action-btn" id="app-store-refresh-btn" title="刷新列表">
