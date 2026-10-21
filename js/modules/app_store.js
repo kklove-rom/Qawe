@@ -128,6 +128,18 @@
         return ['html', 'htm', 'js', 'mjs', 'css', 'json', 'txt', 'md', 'svg', 'xml'].includes(ext);
     }
 
+    // 带超时的 fetch（GitHub API 国内可能长时间挂起，防止界面永远卡在"正在拉取"）
+    function fetchWithTimeout(url, opts, ms) {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), ms || 12000);
+        return fetch(url, { ...(opts || {}), signal: ctrl.signal }).finally(() => clearTimeout(t));
+    }
+
+    // 当前是否运行在 github.io（是则 apps/index.json 可同源直取，走 CDN 最快）
+    function onGhPages() {
+        return /^([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)\.github\.io$/i.test(location.hostname);
+    }
+
     // ============ GitHub 同步 ============
     async function fetchRemoteApps(manual = false) {
         const cfg = getGhConfig();
@@ -144,9 +156,10 @@
         try {
             let apps = null;
             // 1) 优先同源清单 apps/index.json（走 Pages CDN，速度快，不占 API 限流）
-            if (cfg.sameOrigin) {
+            //    只要运行在 github.io 就先试这条，即使配了 GitHub备份（备份配置可能指向旧仓库）
+            if (onGhPages()) {
                 try {
-                    const r = await fetch(`${STORE_APPS_DIR}/index.json?_=${Date.now()}`);
+                    const r = await fetchWithTimeout(`${STORE_APPS_DIR}/index.json?_=${Date.now()}`, null, 10000);
                     if (r.ok) {
                         const idx = await r.json();
                         if (idx && Array.isArray(idx.apps)) {
@@ -156,7 +169,8 @@
                                 sha: a.sha || '',
                                 version: a.version || '',
                                 downloadUrl: `${STORE_APPS_DIR}/${a.file}`,
-                                path: `${STORE_APPS_DIR}/${a.file}`
+                                path: `${STORE_APPS_DIR}/${a.file}`,
+                                sameOrigin: true
                             }));
                         }
                     }
@@ -165,7 +179,7 @@
             // 2) 回退 GitHub API 列目录（国内访问较慢，仅作兜底）
             if (!apps) {
                 const url = `https://api.github.com/repos/${cfg.repo}/contents/${STORE_APPS_DIR}`;
-                const res = await fetch(url, { headers: ghHeaders(cfg) });
+                const res = await fetchWithTimeout(url, { headers: ghHeaders(cfg) }, 15000);
                 if (res.status === 404) {
                     remoteApps = [];
                     renderRemoteList('仓库中还没有 apps 文件夹。把 zip 上传到仓库的 apps/ 目录后，点右上角刷新即可看到。');
@@ -205,18 +219,18 @@
         try {
             // 下载 zip：同源 Pages 直接下(不占API限流) > download_url(公开仓库) > contents API raw(私有仓库)
             let zipBuf = null;
-            if (cfg.sameOrigin) {
-                const r = await fetch(`${STORE_APPS_DIR}/${remote.name}`);
+            if (cfg.sameOrigin || remote.sameOrigin) {
+                const r = await fetchWithTimeout(`${STORE_APPS_DIR}/${remote.name}`, null, 30000);
                 if (r.ok) zipBuf = await r.arrayBuffer();
             }
             if (!zipBuf && remote.downloadUrl && !cfg.token) {
-                const r = await fetch(remote.downloadUrl);
+                const r = await fetchWithTimeout(remote.downloadUrl, null, 30000);
                 if (r.ok) zipBuf = await r.arrayBuffer();
             }
             if (!zipBuf) {
-                const blobRes = await fetch(`https://api.github.com/repos/${cfg.repo}/contents/${encodeURIComponent(remote.path)}`, {
+                const blobRes = await fetchWithTimeout(`https://api.github.com/repos/${cfg.repo}/contents/${encodeURIComponent(remote.path)}`, {
                     headers: { ...ghHeaders(cfg), 'Accept': 'application/vnd.github.v3.raw' }
-                });
+                }, 30000);
                 if (!blobRes.ok) throw new Error('下载失败: HTTP ' + blobRes.status);
                 zipBuf = await blobRes.arrayBuffer();
             }
