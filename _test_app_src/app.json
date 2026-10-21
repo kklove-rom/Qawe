@@ -1,9 +1,0 @@
-{
-    "id": "uwu-demo",
-    "name": "桥接测试",
-    "desc": "验证 UwU 桥接接口的演示应用",
-    "version": "1.0.0",
-    "author": "UwU",
-    "entry": "index.html",
-    "icon": "icon.svg"
-}

@@ -5,6 +5,7 @@
 
 (function () {
     const STORE_APPS_DIR = 'apps'; // 仓库中存放 zip 的目录
+    const REMOTE_CACHE_KEY = 'store_remote_apps_cache_v1'; // 远程列表本地缓存，进 store 先秒出
     let remoteApps = [];           // 远程 zip 列表
     let storeLoading = false;
     let currentRunnerAppId = null; // 当前运行的 app id
@@ -148,7 +149,18 @@
     function fetchWithTimeout(url, opts, ms) {
         const ctrl = new AbortController();
         const t = setTimeout(() => ctrl.abort(), ms || 12000);
-        return fetch(url, { ...(opts || {}), signal: ctrl.signal }).finally(() => clearTimeout(t));
+        // no-store：避免浏览器把 index.json / zip 缓存 10 分钟，刷新后仍拿旧列表
+        return fetch(url, { cache: 'no-store', ...(opts || {}), signal: ctrl.signal }).finally(() => clearTimeout(t));
+    }
+
+    function readRemoteCache() {
+        try {
+            const arr = JSON.parse(localStorage.getItem(REMOTE_CACHE_KEY) || '[]');
+            return Array.isArray(arr) ? arr : [];
+        } catch (e) { return []; }
+    }
+    function writeRemoteCache(list) {
+        try { localStorage.setItem(REMOTE_CACHE_KEY, JSON.stringify(list || [])); } catch (e) { /* ignore */ }
     }
 
     // 当前是否运行在 github.io（是则 apps/index.json 可同源直取，走 CDN 最快）
@@ -171,11 +183,12 @@
         renderRemoteList();
         try {
             let apps = null;
+            let fromIndex = false;
             // 1) 优先同源清单 apps/index.json（走 Pages CDN，速度快，不占 API 限流）
             //    只要运行在 github.io 就先试这条，即使配了 GitHub备份（备份配置可能指向旧仓库）
             if (onGhPages()) {
                 try {
-                    const r = await fetchWithTimeout(`${STORE_APPS_DIR}/index.json?_=${Date.now()}`, null, 10000);
+                    const r = await fetchWithTimeout(`${STORE_APPS_DIR}/index.json?v=${Date.now()}`, null, 8000);
                     if (r.ok) {
                         const idx = await r.json();
                         if (idx && Array.isArray(idx.apps)) {
@@ -188,6 +201,7 @@
                                 path: `${STORE_APPS_DIR}/${a.file}`,
                                 sameOrigin: true
                             }));
+                            fromIndex = true;
                         }
                     }
                 } catch (e) { /* 清单不存在或网络问题时回退 API */ }
@@ -195,7 +209,7 @@
             // 2) 回退 GitHub API 列目录（国内访问较慢，仅作兜底）
             if (!apps) {
                 const url = `https://api.github.com/repos/${cfg.repo}/contents/${STORE_APPS_DIR}`;
-                const res = await fetchWithTimeout(url, { headers: ghHeaders(cfg) }, 15000);
+                const res = await fetchWithTimeout(url, { headers: ghHeaders(cfg) }, 8000);
                 if (res.status === 404) {
                     remoteApps = [];
                     renderRemoteList('仓库中还没有 apps 文件夹。把 zip 上传到仓库的 apps/ 目录后，点右上角刷新即可看到。');
@@ -218,7 +232,10 @@
             }
             remoteApps = apps;
             renderRemoteList();
+            writeRemoteCache(remoteApps);
             if (manual) showToast(remoteApps.length ? `发现 ${remoteApps.length} 个应用` : 'apps 目录里还没有 zip');
+            // index.json 会被 Pages CDN 缓存（最多约 10 分钟）；后台再用 API 目录补齐刚上传、还没写进清单的 zip
+            if (fromIndex) mergeDirectory(cfg);
         } catch (e) {
             console.error('[AppStore] fetch failed:', e);
             renderRemoteList('拉取失败: ' + e.message);
@@ -226,6 +243,30 @@
         } finally {
             storeLoading = false;
         }
+    }
+
+    // 用 GitHub API 的目录列表补齐 index.json（后台执行，失败不影响快速通道）
+    async function mergeDirectory(cfg) {
+        try {
+            const url = `https://api.github.com/repos/${cfg.repo}/contents/${STORE_APPS_DIR}`;
+            const res = await fetchWithTimeout(url, { headers: ghHeaders(cfg) }, 6000);
+            if (!res.ok) return;
+            const files = await res.json();
+            if (!Array.isArray(files)) return;
+            const apiApps = files
+                .filter(f => f.type === 'file' && /\.zip$/i.test(f.name))
+                .map(f => ({ name: f.name, size: f.size, sha: f.sha, downloadUrl: f.download_url, path: f.path }));
+            const byName = {};
+            (remoteApps || []).forEach(a => { byName[a.name] = a; });
+            const apiByName = {};
+            apiApps.forEach(a => { apiByName[a.name] = a; });
+            // 保留清单里的应用（即使 API 目录暂时还没刷新），再用 API 的最新 sha/size 覆盖，并追加清单里没有的新 zip
+            const merged = (remoteApps || []).map(old => Object.assign({}, old, apiByName[old.name] || {}));
+            apiApps.forEach(a => { if (!byName[a.name]) merged.push(a); });
+            remoteApps = merged;
+            renderRemoteList();
+            writeRemoteCache(remoteApps);
+        } catch (e) { /* 后台补齐失败就保持清单结果 */ }
     }
 
     // ============ 安装 / 卸载 ============
@@ -236,7 +277,7 @@
         try {
             // 下载 zip：同源 Pages 直接下(不占API限流) > download_url(公开仓库) > contents API raw(私有仓库)
             if (cfg.sameOrigin || remote.sameOrigin) {
-                const r = await fetchWithTimeout(`${STORE_APPS_DIR}/${remote.name}`, null, 30000);
+                const r = await fetchWithTimeout(`${STORE_APPS_DIR}/${remote.name}?v=${encodeURIComponent(remote.sha || remote.version || Date.now())}`, null, 30000);
                 if (r.ok) zipBuf = await r.arrayBuffer();
             }
             if (!zipBuf && remote.downloadUrl && !cfg.token) {
@@ -439,11 +480,11 @@
     function renderRemoteList(errorMsg) {
         const el = document.getElementById('app-store-remote-list');
         if (!el) return;
-        if (storeLoading) {
+        if (storeLoading && !remoteApps.length) {
             el.innerHTML = '<div class="app-store-empty">正在从 GitHub 拉取...</div>';
             return;
         }
-        if (errorMsg) {
+        if (errorMsg && !remoteApps.length) {
             el.innerHTML = `<div class="app-store-empty">${escapeHtml(errorMsg)}</div>`;
             return;
         }
@@ -829,7 +870,8 @@
             }
         });
 
-        // 初次渲染
+        // 初次渲染：先用上次缓存的远程列表秒出，再后台刷新
+        remoteApps = readRemoteCache();
         renderStoreRepoCard();
         renderRemoteList();
         renderInstalledList();

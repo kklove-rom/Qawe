@@ -1,0 +1,7 @@
+# 本地应用源码/预览目录：只用于开发，不要提交或部署
+*_src/
+_preview.html
+
+# 系统杂项
+.DS_Store
+Thumbs.db
