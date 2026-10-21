@@ -1,16 +1,16 @@
 {
   "apps": [
     {
-      "file": "test-app.zip",
-      "name": "桥接测试",
-      "desc": "一键测试 store 与 404 的桥接交互（读人设/世界书/聊天记录、注入消息、调AI）",
+      "file": "daily-fortune.zip",
+      "name": "每日一签",
+      "desc": "每天抽一签，可让 404 角色把签文发给你",
       "version": "1.0.0",
       "author": "kk"
     },
     {
-      "file": "pull-test.zip",
-      "name": "拉取测试",
-      "desc": "验证 store 能正常拉取、安装和运行新应用",
+      "file": "test-app.zip",
+      "name": "桥接测试",
+      "desc": "一键测试 store 与 404 的桥接交互（读人设/世界书/聊天记录、注入消息、调AI）",
       "version": "1.0.0",
       "author": "kk"
     }
