@@ -561,6 +561,8 @@
         callAI: function (messages, opts) { return call('callAI', { messages: messages, opts: opts || {} }); },
         // 读取 404 角色列表（含人设字段，不含聊天记录）
         getCharacters: function () { return call('getCharacters'); },
+        // 读取「我的人设」全局预设列表（含每个角色绑定的覆盖设定）
+        getUserPersonas: function () { return call('getUserPersonas'); },
         // 读取世界书条目
         getWorldBooks: function () { return call('getWorldBooks'); },
         // 读取某角色聊天记录。limit 可选，取最近 N 条
@@ -686,6 +688,19 @@
                     const { history, ...rest } = c;
                     return rest;
                 });
+            case 'getUserPersonas': {
+                // 全局「我的人设」预设 + 每个角色的绑定（bindings: charId -> {extraPersona, override}）
+                const list = Array.isArray(db.myPersonaPresets) ? db.myPersonaPresets : [];
+                const activeId = db.activePersonaId || (list[0] && list[0].id) || null;
+                return list.map(p => ({
+                    id: p.id,
+                    name: p.name || '',
+                    persona: p.persona || '',
+                    avatar: p.avatar || '',
+                    isActive: String(p.id) === String(activeId),
+                    bindings: JSON.parse(JSON.stringify(p.bindings || {}))
+                }));
+            }
             case 'getWorldBooks':
                 return JSON.parse(JSON.stringify(db.worldBooks || []));
             case 'getChatHistory': {

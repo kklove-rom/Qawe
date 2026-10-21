@@ -45,6 +45,7 @@
 |---|---|
 | `await UwU.callAI(messages, opts?)` | 用宿主已录入的 API 发起 AI 对话。messages 为 OpenAI 格式 `[{role:'system'\|'user'\|'assistant', content:'...'}]`；opts 可选 `{model, temperature}`。返回 AI 回复文本（字符串）。OpenAI 兼容与 Gemini 后端都支持 |
 | `await UwU.getCharacters()` | 返回 404 聊天里的全部角色数组（含人设字段，如 id/realName/remarkName/avatar/persona 等，**不含聊天记录**） |
+| `await UwU.getUserPersonas()` | 返回全局「我的人设」预设数组，每项 `{id, name, avatar, persona, isActive, bindings}`；`isActive` 表示当前展示中的人设，`bindings` 为 `{charId: {extraPersona, override}}`，用于计算该角色真正的用户人设 |
 | `await UwU.getWorldBooks()` | 返回世界书条目数组 |
 | `await UwU.getChatHistory(charId, limit?)` | 返回某角色最近 limit 条聊天消息 `[{id, role, content, timestamp}]`，role 为 'user'(用户) 或 'char'(角色) |
 | `await UwU.injectMessage(charId, {role, content})` | 向 404 某角色的聊天注入一条消息。role: 'user'=以用户身份发，'char'=以角色身份发。注入后 404 聊天界面会实时显示 |
@@ -66,6 +67,26 @@
 ---
 
 ## 常见问题（你自己看，不用复制给 AI）
+
+### 用户人设怎么取（getUserPersonas）
+
+`character.myPersona` 已经是**该角色最终生效的用户人设**（宿主保存人设时算好的），一般直接用这个就够了。
+如果要拿全局预设列表（比如做「人设切换器」），用 `getUserPersonas()`，每一项：
+
+```json
+{
+  "id": "uuid",
+  "name": "小明",
+  "avatar": "https://...",
+  "persona": "预设正文",
+  "isActive": true,
+  "bindings": { "char_1": { "extraPersona": "对该角色的追加设定", "override": false } }
+}
+```
+
+某角色真正生效的人设计算方式（和宿主一致）：
+- `bindings[charId].override === true` → 用 `bindings[charId].extraPersona`
+- 否则 → `预设 persona` + `\n` + `bindings[charId].extraPersona`（都为空则空串）
 
 - **zip 里需要加桥接模块吗？** 不需要。`window.UwU` 桥接脚本由小手机在打开应用时自动注入，zip 里只放 app.json + html + 你的资源。
 - **zip 里能用第三方库吗？** 可以，把库文件放进 zip 相对引用，或用 CDN 链接。
