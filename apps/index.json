@@ -13,6 +13,13 @@
       "desc": "一键测试 store 与 404 的桥接交互（读人设/世界书/聊天记录、注入消息、调AI）",
       "version": "1.0.0",
       "author": "kk"
+    },
+    {
+      "file": "x-social.zip",
+      "name": "X",
+      "desc": "在 X 上和 char、NPC 互动：大小号、秘密设定、动态与私信",
+      "version": "1.0.0",
+      "author": "kk"
     }
   ]
 }
