@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>桥接测试</title>
+<style>
+    body { font-family: -apple-system, sans-serif; margin: 0; padding: 16px; background: #f6f6f8; }
+    h2 { font-size: 16px; margin: 0 0 12px; }
+    button { display: block; width: 100%; margin-bottom: 10px; padding: 12px; border: none; border-radius: 12px; background: #2a9d8f; color: #fff; font-size: 14px; }
+    button.secondary { background: #6c7a89; }
+    #log { background: #fff; border-radius: 12px; padding: 12px; font-size: 12px; white-space: pre-wrap; word-break: break-all; max-height: 50vh; overflow-y: auto; font-family: monospace; }
+</style>
+</head>
+<body>
+<h2>UwU 桥接测试</h2>
+<button onclick="testInfo()">1. getAppInfo</button>
+<button onclick="testChars()">2. getCharacters (人设)</button>
+<button onclick="testWb()">3. getWorldBooks (世界书)</button>
+<button onclick="testHistory()">4. getChatHistory (聊天记录)</button>
+<button onclick="testInject()" class="secondary">5. injectMessage (注入到404)</button>
+<button onclick="testAI()" class="secondary">6. callAI (调已录入API)</button>
+<div id="log">等待操作...</div>
+<script>
+function log(t) {
+    const el = document.getElementById('log');
+    el.textContent = (typeof t === 'string' ? t : JSON.stringify(t, null, 2).slice(0, 2000));
+}
+async function testInfo() {
+    try { log(await UwU.getAppInfo()); } catch (e) { log('ERR: ' + e.message); }
+}
+async function testChars() {
+    try {
+        const chars = await UwU.getCharacters();
+        log('角色数: ' + chars.length + '\n' + chars.map(c => `${c.id} | ${c.remarkName || c.realName}`).join('\n'));
+        window._firstCharId = chars[0] && chars[0].id;
+    } catch (e) { log('ERR: ' + e.message); }
+}
+async function testWb() {
+    try {
+        const wb = await UwU.getWorldBooks();
+        log('世界书条目数: ' + wb.length);
+    } catch (e) { log('ERR: ' + e.message); }
+}
+async function testHistory() {
+    try {
+        if (!window._firstCharId) await testChars();
+        if (!window._firstCharId) return log('没有角色');
+        const h = await UwU.getChatHistory(window._firstCharId, 3);
+        log('最近 ' + h.length + ' 条:\n' + h.map(m => `[${m.role}] ${String(m.content).slice(0, 50)}`).join('\n'));
+    } catch (e) { log('ERR: ' + e.message); }
+}
+async function testInject() {
+    try {
+        if (!window._firstCharId) await testChars();
+        if (!window._firstCharId) return log('没有角色');
+        const r = await UwU.injectMessage(window._firstCharId, { role: 'user', content: '[来自store应用的测试消息]' });
+        log('注入成功: ' + JSON.stringify(r));
+        UwU.toast('已注入到404');
+    } catch (e) { log('ERR: ' + e.message); }
+}
+async function testAI() {
+    try {
+        log('AI 请求中...');
+        const r = await UwU.callAI([{ role: 'user', content: '用一句话介绍你自己' }]);
+        log('AI 回复:\n' + r);
+    } catch (e) { log('ERR: ' + e.message); }
+}
+</script>
+</body>
+</html>
