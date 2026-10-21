@@ -632,9 +632,9 @@
         const pathEl = document.getElementById('store-repo-path');
 
         const updatePath = () => {
-            const repo = normalizeRepo(repoInput.value) || 'username/仓库名';
+            const repo = normalizeRepo(repoInput.value);
             const dir = normalizeDir(dirInput.value);
-            pathEl.textContent = `${repo}/${dir}`;
+            pathEl.textContent = repo ? `${repo}/${dir}` : '填写仓库后显示路径';
         };
         repoInput.addEventListener('input', updatePath);
         dirInput.addEventListener('input', updatePath);
