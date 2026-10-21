@@ -581,7 +581,8 @@
         if (old) old.remove();
 
         const cfg = getGhConfig();
-        const repoValue = escapeHtml(cfg.repo || '');
+        // 只有已经保存过自定义仓库时才回填；自动检测/旧备份模式下仓库名默认为空，等用户填写
+        const repoValue = cfg.source === 'custom' ? escapeHtml(cfg.repo || '') : '';
         const dirValue = escapeHtml(cfg.dir || STORE_APPS_DIR);
         const branchValue = escapeHtml(cfg.branch || 'main');
         // 自定义仓库才回填 Token；从旧的 GitHub 备份配置切过来时不要误带旧 Token
