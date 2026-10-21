@@ -5,9 +5,13 @@
 
 (function () {
     const STORE_APPS_DIR = 'apps'; // 仓库中存放 zip 的目录（自定义仓库可改）
+    const DEFAULT_APPS_DIR = 'apps/defaults'; // 小手机自带的固定默认应用（同源）
     const STORE_REPO_CONFIG_KEY = 'store_repo_config_v1'; // 自定义同步仓库
     const REMOTE_CACHE_KEY = 'store_remote_apps_cache_v1'; // 远程列表本地缓存，进 store 先秒出
-    let remoteApps = [];           // 远程 zip 列表
+    const DEFAULT_CACHE_KEY = 'store_default_apps_cache_v1'; // 默认应用列表缓存
+    let remoteApps = [];           // 默认应用 + 自定义仓库应用的合并列表
+    let defaultApps = [];          // 固定默认应用
+    let customApps = [];           // 自定义仓库应用
     let storeLoading = false;
     let storeFetchSeq = 0;         // 避免切换仓库后旧请求覆盖新列表
     let currentRunnerAppId = null; // 当前运行的 app id
@@ -41,7 +45,7 @@
                     <div class="app-store-local-tip">不经过 GitHub：把应用 zip 传到手机，直接选文件安装</div>
                 </div>
                 <input type="file" id="app-store-local-file" accept=".zip,application/zip,application/x-zip-compressed" style="display:none">
-                <div class="app-store-section-title">远程应用 (GitHub)</div>
+                <div class="app-store-section-title">应用列表</div>
                 <div id="app-store-remote-list" class="app-store-list"></div>
                 <div class="app-store-section-title">已安装</div>
                 <div id="app-store-installed-list" class="app-store-list"></div>
@@ -206,6 +210,48 @@
         } catch (e) { /* ignore */ }
     }
 
+    function readDefaultCache() {
+        try {
+            const raw = JSON.parse(localStorage.getItem(DEFAULT_CACHE_KEY) || 'null');
+            return raw && Array.isArray(raw.apps) ? raw.apps : [];
+        } catch (e) { return []; }
+    }
+    function writeDefaultCache(list) {
+        try {
+            localStorage.setItem(DEFAULT_CACHE_KEY, JSON.stringify({ apps: list || [] }));
+        } catch (e) { /* ignore */ }
+    }
+
+    // 默认应用在前，自定义仓库应用在后；同名 zip 以默认应用为准，避免重复
+    function combineApps(defaultsList, customList) {
+        const out = [];
+        const seen = new Set();
+        [...(defaultsList || []), ...(customList || [])].forEach(a => {
+            if (!a || !a.name || seen.has(a.name)) return;
+            seen.add(a.name);
+            out.push(a);
+        });
+        return out;
+    }
+
+    // 读取固定默认应用清单（和 store 同源，不依赖用户填写的仓库）
+    async function fetchDefaultApps() {
+        const r = await fetchWithTimeout(`${encodePath(DEFAULT_APPS_DIR)}/index.json?v=${Date.now()}`, null, 8000);
+        if (!r.ok) return null;
+        const idx = await r.json();
+        return (idx.apps || []).filter(a => a && a.file).map(a => ({
+            name: a.file,
+            displayName: a.name || a.file,
+            size: a.size || 0,
+            sha: a.sha || '',
+            version: a.version || '',
+            downloadUrl: `${encodePath(DEFAULT_APPS_DIR)}/${encodePath(a.file)}`,
+            path: `${encodePath(DEFAULT_APPS_DIR)}/${encodePath(a.file)}`,
+            builtin: true,
+            sameOrigin: true
+        }));
+    }
+
     function appsFromIndex(idx, cfg) {
         return (idx.apps || []).filter(a => a && a.file).map(a => ({
             name: a.file,
@@ -280,16 +326,37 @@
         const cfg = getGhConfig();
         const seq = ++storeFetchSeq;
         renderStoreRepoCard();
-        if (!cfg.repo) {
-            remoteApps = [];
-            storeLoading = false;
-            renderRemoteList();
-            if (manual) showToast('请先设置同步仓库：username/仓库名 + 目录 apps');
-            return;
-        }
         storeLoading = true;
         renderRemoteList();
         try {
+            // 默认应用和自定义仓库相互独立；即使没填仓库也始终加载默认应用
+            const freshDefaults = await fetchDefaultApps().catch(() => null);
+            if (seq !== storeFetchSeq) return;
+            if (freshDefaults) {
+                defaultApps = freshDefaults;
+                writeDefaultCache(defaultApps);
+            } else if (!defaultApps.length) {
+                defaultApps = readDefaultCache();
+            }
+
+            if (!cfg.repo) {
+                customApps = [];
+                remoteApps = combineApps(defaultApps, customApps);
+                storeLoading = false;
+                renderRemoteList();
+                if (manual) {
+                    showToast(defaultApps.length
+                        ? `已加载 ${defaultApps.length} 个默认应用`
+                        : '请先设置同步仓库：username/仓库名 + 目录 apps');
+                }
+                return;
+            }
+
+            // 先用缓存中的自定义应用垫底，避免网络慢时列表空白
+            customApps = readRemoteCache(cfg);
+            remoteApps = combineApps(defaultApps, customApps);
+            renderRemoteList();
+
             let apps = null;
             let fromIndex = false;
             try {
@@ -303,19 +370,26 @@
                 apps = await fetchStoreDirectory(cfg);
             }
             if (seq !== storeFetchSeq) return; // 已经切换仓库，丢弃旧结果
-            remoteApps = apps;
+            customApps = apps;
+            remoteApps = combineApps(defaultApps, customApps);
+            storeLoading = false;
             renderRemoteList();
-            writeRemoteCache(cfg, remoteApps);
+            writeRemoteCache(cfg, customApps);
             if (manual) showToast(remoteApps.length ? `发现 ${remoteApps.length} 个应用` : `${cfg.dir} 目录里还没有 zip`);
             // 清单可能被 CDN 缓存；后台再用 API 目录补齐刚上传、还没写进清单的 zip
             if (fromIndex) mergeDirectory(cfg, seq);
         } catch (e) {
             if (seq !== storeFetchSeq) return;
             console.error('[AppStore] fetch failed:', e);
+            remoteApps = combineApps(defaultApps, customApps);
+            storeLoading = false;
             renderRemoteList('拉取失败: ' + e.message);
             if (manual) showToast('拉取失败: ' + e.message);
         } finally {
-            if (seq === storeFetchSeq) storeLoading = false;
+            if (seq === storeFetchSeq && storeLoading) {
+                storeLoading = false;
+                renderRemoteList();
+            }
         }
     }
 
@@ -325,18 +399,19 @@
             const apiApps = await fetchStoreDirectory(cfg);
             if (seq !== storeFetchSeq) return;
             const byName = {};
-            (remoteApps || []).forEach(a => { byName[a.name] = a; });
+            (customApps || []).forEach(a => { byName[a.name] = a; });
             const apiByName = {};
             apiApps.forEach(a => { apiByName[a.name] = a; });
             // 保留清单里的应用（即使 API 目录暂时还没刷新），再用 API 的最新 sha/size 覆盖，并追加清单里没有的新 zip
-            const merged = (remoteApps || []).map(old => {
+            const merged = (customApps || []).map(old => {
                 const api = apiByName[old.name] || {};
-                return Object.assign({}, old, api, { displayName: old.displayName || api.displayName || old.name });
+                return Object.assign({}, old, api, { displayName: old.displayName || api.displayName || old.name, builtin: false });
             });
             apiApps.forEach(a => { if (!byName[a.name]) merged.push(a); });
-            remoteApps = merged;
+            customApps = merged;
+            remoteApps = combineApps(defaultApps, customApps);
             renderRemoteList();
-            writeRemoteCache(cfg, remoteApps);
+            writeRemoteCache(cfg, customApps);
         } catch (e) { /* 后台补齐失败就保持清单结果 */ }
     }
 
@@ -357,6 +432,9 @@
                 const sep = remote.downloadUrl.includes('?') ? '&' : '?';
                 const r = await fetchWithTimeout(`${remote.downloadUrl}${sep}v=${ver}`, null, 30000);
                 if (r.ok) zipBuf = await r.arrayBuffer();
+            }
+            if (!zipBuf && remote.builtin) {
+                throw new Error('默认应用下载失败，请刷新后重试');
             }
             if (!zipBuf) {
                 const path = remote.path || `${cfg.dir}/${remote.name}`;
@@ -631,13 +709,14 @@
         overlay.querySelector('[data-repo-act="clear"]').addEventListener('click', () => {
             localStorage.removeItem(STORE_REPO_CONFIG_KEY);
             close();
-            // 让正在进行的旧请求失效，并立即回到「未设置仓库」
+            // 让正在进行的旧请求失效，自定义应用清空，但固定默认应用继续显示
             storeFetchSeq++;
             storeLoading = false;
-            remoteApps = [];
+            customApps = [];
+            remoteApps = combineApps(defaultApps, customApps);
             renderStoreRepoCard();
             renderRemoteList();
-            showToast('已清空同步仓库，请填写新仓库');
+            showToast('已清空同步仓库，默认应用仍然保留');
         });
         overlay.querySelector('[data-repo-act="save"]').addEventListener('click', () => {
             const repo = normalizeRepo(repoInput.value);
@@ -657,7 +736,8 @@
             }
             close();
             showToast('已保存，正在同步...');
-            remoteApps = readRemoteCache(getGhConfig());
+            customApps = readRemoteCache(getGhConfig());
+            remoteApps = combineApps(defaultApps, customApps);
             renderStoreRepoCard();
             renderRemoteList();
             fetchRemoteApps(true);
@@ -672,16 +752,16 @@
             return;
         }
         if (storeLoading && !remoteApps.length) {
-            el.innerHTML = '<div class="app-store-empty">正在从 GitHub 拉取...</div>';
+            el.innerHTML = '<div class="app-store-empty">正在加载应用...</div>';
             return;
         }
         const cfg = getGhConfig();
-        if (!cfg.repo) {
-            el.innerHTML = '<div class="app-store-empty">点上方「设置」填写同步仓库，例如 <b>username/仓库名</b>，应用目录填 <b>apps</b>。</div>';
-            return;
-        }
         if (!remoteApps.length) {
-            el.innerHTML = `<div class="app-store-empty">未发现 zip 应用。把 zip 上传到 <b>${escapeHtml(cfg.repo)}/${escapeHtml(cfg.dir)}/</b> 后点右上角刷新。</div>`;
+            if (!cfg.repo) {
+                el.innerHTML = '<div class="app-store-empty">暂无默认应用。点上方「设置」填写同步仓库，例如 <b>username/仓库名</b>，应用目录填 <b>apps</b>。</div>';
+            } else {
+                el.innerHTML = `<div class="app-store-empty">未发现 zip 应用。把 zip 上传到 <b>${escapeHtml(cfg.repo)}/${escapeHtml(cfg.dir)}/</b> 后点右上角刷新。</div>`;
+            }
             return;
         }
         el.innerHTML = remoteApps.map(r => {
@@ -700,7 +780,7 @@
                 actionHtml = `<button class="app-store-btn" data-action="install" data-name="${escapeHtml(r.name)}">安装</button>`;
             }
             const label = r.displayName || r.name;
-            const meta = [formatSize(r.size), r.version ? 'v' + r.version : ''].filter(Boolean).join(' · ');
+            const meta = [r.builtin ? '默认' : '', formatSize(r.size), r.version ? 'v' + r.version : ''].filter(Boolean).join(' · ');
             return `
                 <div class="app-store-item">
                     <div class="app-store-item-icon zip-icon">
@@ -1059,8 +1139,10 @@
             }
         });
 
-        // 初次渲染：先用当前仓库的缓存秒出，再后台刷新
-        remoteApps = readRemoteCache(getGhConfig());
+        // 初次渲染：默认应用 + 当前仓库缓存秒出，再后台刷新
+        defaultApps = readDefaultCache();
+        customApps = readRemoteCache(getGhConfig());
+        remoteApps = combineApps(defaultApps, customApps);
         renderStoreRepoCard();
         renderRemoteList();
         renderInstalledList();

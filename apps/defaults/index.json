@@ -1,0 +1,22 @@
+{
+  "apps": [
+    {
+      "file": "daily-fortune.zip",
+      "name": "test",
+      "desc": "默认测试应用：每天抽一签，可让 404 角色把签文发给你",
+      "version": "1.0.0",
+      "author": "kk",
+      "size": 4358,
+      "sha": "12f20411a9696363a3c82911c0315b80009aec7e"
+    },
+    {
+      "file": "test-app.zip",
+      "name": "拉取桥接测试",
+      "desc": "默认测试应用：验证 store 拉取/安装/运行链路，以及 UwU 桥接接口",
+      "version": "1.1.0",
+      "author": "UwU",
+      "size": 2882,
+      "sha": "55578e8ef43b115fcae33a5a19d9a4db9221421d"
+    }
+  ]
+}

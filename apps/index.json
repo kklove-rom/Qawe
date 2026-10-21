@@ -1,24 +1,6 @@
 {
   "apps": [
     {
-      "file": "daily-fortune.zip",
-      "name": "每日一签",
-      "desc": "每天抽一签，可让 404 角色把签文发给你",
-      "version": "1.0.0",
-      "author": "kk",
-      "size": 4342,
-      "sha": "cab5beffc3e2101f39b0a29ee8df457a5fad6751"
-    },
-    {
-      "file": "test-app.zip",
-      "name": "桥接测试",
-      "desc": "一键测试 store 与 404 的桥接交互（读人设/世界书/聊天记录、注入消息、调AI）",
-      "version": "1.0.0",
-      "author": "kk",
-      "size": 1923,
-      "sha": "fa9d7544e44e5a74090df97b424877adb36362c2"
-    },
-    {
       "file": "x-social.zip",
       "name": "X",
       "desc": "在 X 上和 char、NPC 互动：大小号、秘密设定、动态与私信",
