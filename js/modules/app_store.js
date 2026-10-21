@@ -83,7 +83,7 @@
     }
 
     // ============ 工具函数 ============
-    // 仓库来源优先级：1. store 自定义仓库 2. GitHub备份配置 3. 当前 GitHub Pages 自动推断
+    // store 只使用「自定义同步仓库」；默认没有仓库，必须由用户填写
     function getGhConfig() {
         try {
             const raw = localStorage.getItem(STORE_REPO_CONFIG_KEY);
@@ -101,24 +101,6 @@
                 }
             }
         } catch (e) { /* ignore */ }
-
-        try {
-            const confStr = localStorage.getItem('gh_config');
-            if (confStr) {
-                const cfg = JSON.parse(confStr);
-                if (cfg && cfg.token && cfg.repo) {
-                    return { token: cfg.token, repo: cfg.repo, dir: 'apps', branch: 'main', source: 'config', sameOrigin: false };
-                }
-            }
-        } catch (e) { /* ignore */ }
-
-        const m = location.hostname.match(/^([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)\.github\.io$/i);
-        if (m) {
-            const owner = m[1];
-            const seg = location.pathname.split('/').filter(Boolean)[0];
-            const repo = seg ? `${owner}/${seg}` : `${owner}/${owner}.github.io`;
-            return { token: '', repo, dir: 'apps', branch: 'main', source: 'pages', sameOrigin: true };
-        }
         return { token: '', repo: '', dir: 'apps', branch: 'main', source: 'none', sameOrigin: false };
     }
 
@@ -618,7 +600,7 @@
                 </label>
                 <div class="store-repo-path">路径：<span id="store-repo-path"></span></div>
                 <div class="store-repo-actions">
-                    <button class="store-repo-btn ghost" data-repo-act="auto">恢复自动检测</button>
+                    <button class="store-repo-btn ghost" data-repo-act="clear">清空仓库</button>
                     <button class="store-repo-btn primary" data-repo-act="save">保存并同步</button>
                 </div>
             </div>
@@ -646,14 +628,16 @@
         });
 
         overlay.querySelector('[data-repo-act="cancel"]').addEventListener('click', close);
-        overlay.querySelector('[data-repo-act="auto"]').addEventListener('click', () => {
+        overlay.querySelector('[data-repo-act="clear"]').addEventListener('click', () => {
             localStorage.removeItem(STORE_REPO_CONFIG_KEY);
             close();
-            showToast('已恢复自动检测仓库');
-            remoteApps = readRemoteCache(getGhConfig());
+            // 让正在进行的旧请求失效，并立即回到「未设置仓库」
+            storeFetchSeq++;
+            storeLoading = false;
+            remoteApps = [];
             renderStoreRepoCard();
             renderRemoteList();
-            fetchRemoteApps(true);
+            showToast('已清空同步仓库，请填写新仓库');
         });
         overlay.querySelector('[data-repo-act="save"]').addEventListener('click', () => {
             const repo = normalizeRepo(repoInput.value);
