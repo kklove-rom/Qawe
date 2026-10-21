@@ -60,6 +60,28 @@
     border-radius: 20px;
 }
 
+/* 本地 zip 安装 */
+.app-store-local-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    background: #fff;
+    border-radius: 14px;
+    padding: 12px 14px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    margin-bottom: 6px;
+}
+
+.app-store-local-tip {
+    flex: 1;
+    min-width: 0;
+    font-size: 11px;
+    color: #999;
+    line-height: 1.5;
+    text-align: right;
+}
+
 /* 分区标题 */
 .app-store-section-title {
     font-size: 12px;
