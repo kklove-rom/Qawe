@@ -14,9 +14,9 @@
       "name": "拉取桥接测试",
       "desc": "默认测试应用：验证 store 拉取/安装/运行链路，以及 UwU 桥接接口",
       "version": "1.1.0",
-      "author": "UwU",
-      "size": 2882,
-      "sha": "55578e8ef43b115fcae33a5a19d9a4db9221421d"
+      "author": "淡颜",
+      "size": 2886,
+      "sha": "694b69722e7d452e0299e8961e8b1a5de6fc73d5"
     }
   ]
 }
