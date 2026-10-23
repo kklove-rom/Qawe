@@ -3,11 +3,11 @@
     {
       "file": "x-social.zip",
       "name": "X",
-      "desc": "在 X 上和 char、NPC 互动：大小号、秘密设定、动态与私信",
-      "version": "1.1.0",
+      "desc": "在 X 上和 404 角色互动：大小号、动态、评论与私信",
+      "version": "1.1.1",
       "author": "kk",
-      "size": 38177,
-      "sha": "50ec2adab3375c98c9607b9ffad56fb7966cfba41d3d1c5521103847843da608"
+      "size": 35579,
+      "sha": "b702db5176d20f42f511dc4612b1824872d88e49e0ad753d17295afac696fc8b"
     }
   ]
 }
