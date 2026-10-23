@@ -51,6 +51,28 @@ function setupCustomizeApp() {
             showToast('图标已重置');
         }
 
+        if (target.closest('#customize-wallpaper-item')) {
+            const preview = document.getElementById('customize-wallpaper-preview');
+            if (preview) preview.style.backgroundImage = `url(${db.wallpaper})`;
+            const modal = document.getElementById('customize-wallpaper-modal');
+            if (modal) modal.classList.add('visible');
+        }
+
+        if (target.matches('#customize-wallpaper-reset-btn')) {
+            db.wallpaper = DEFAULT_WALLPAPER_URL;
+            applyWallpaper(db.wallpaper);
+            const preview = document.getElementById('customize-wallpaper-preview');
+            if (preview) preview.style.backgroundImage = `url(${db.wallpaper})`;
+            await saveData();
+            showToast('已恢复默认壁纸');
+        }
+
+        if (target.matches('#global-css-clear-btn')) {
+            const textarea = document.getElementById('global-beautification-css');
+            if (textarea) textarea.value = '';
+            showToast('已清空输入框内容');
+        }
+
         if (target.matches('#apply-global-css-now-btn')) {
             const textarea = document.getElementById('global-beautification-css');
             const newCss = textarea.value;
@@ -219,6 +241,26 @@ function setupCustomizeApp() {
     });
 
     document.body.addEventListener('change', async (e) => {
+        if (e.target.id === 'customize-wallpaper-upload') {
+            const file = e.target.files[0];
+            if (!file) return;
+            try {
+                showToast('正在处理壁纸...');
+                const dataUrl = await compressImage(file, { quality: 0.85, maxWidth: 1080, maxHeight: 1920 });
+                db.wallpaper = dataUrl;
+                applyWallpaper(dataUrl);
+                const preview = document.getElementById('customize-wallpaper-preview');
+                if (preview) preview.style.backgroundImage = `url(${dataUrl})`;
+                await saveData();
+                showToast('壁纸已更新');
+            } catch (error) {
+                console.error('壁纸处理失败', error);
+                showToast('壁纸压缩失败');
+            } finally {
+                e.target.value = null;
+            }
+        }
+
         if (e.target.id === 'local-font-upload') {
             const file = e.target.files[0];
             if (!file) return;
@@ -350,7 +392,7 @@ function renderCustomizeForm() {
     container.className = 'kkt-settings-container';
     
     const iconOrder = [
-        'chat-list-screen', 'api-settings-screen', 'wallpaper-screen',
+        'chat-list-screen', 'api-settings-screen', 'presets-screen',
         'world-book-screen', 'customize-screen', 'tutorial-screen',
         'day-mode-btn', 'night-mode-btn', 'forum-screen', 'pomodoro-screen', 'storage-analysis-screen', 'widget-market-screen', 'app-store-screen'
     ];
@@ -401,6 +443,18 @@ function renderCustomizeForm() {
             <div class="kkt-item-content">
                 <div class="kkt-item-title">自定义字体</div>
                 <div class="kkt-item-subtitle">上传或输入字体链接</div>
+            </div>
+            <span class="kkt-arrow">›</span>
+        </div>
+
+        <!-- 壁纸设置 -->
+        <div class="kkt-item" id="customize-wallpaper-item" style="cursor: pointer;">
+            <div class="kkt-item-icon" style="background: transparent; color: #34A853;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+            </div>
+            <div class="kkt-item-content">
+                <div class="kkt-item-title">自定义壁纸</div>
+                <div class="kkt-item-subtitle">更换主页背景图</div>
             </div>
             <span class="kkt-arrow">›</span>
         </div>
@@ -491,6 +545,21 @@ function renderCustomizeForm() {
             </div>
         </div>
 
+        <!-- 自定义壁纸模态框 -->
+        <div id="customize-wallpaper-modal" class="modal-overlay">
+            <div class="modal-window" style="max-height: 80vh; overflow-y: auto;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="margin: 0;">自定义壁纸</h3>
+                    <button class="icon-btn-simple" onclick="document.getElementById('customize-wallpaper-modal').classList.remove('visible')">✕</button>
+                </div>
+                <div class="wallpaper-preview" id="customize-wallpaper-preview" style="height: 220px;"></div>
+                <input type="file" id="customize-wallpaper-upload" accept="image/*" style="display: none;">
+                <label for="customize-wallpaper-upload" class="btn btn-primary" style="display: block; text-align: center; margin-top: 12px;">从相册选择新壁纸</label>
+                <button type="button" id="customize-wallpaper-reset-btn" class="btn" style="display: block; width: 100%; margin-top: 8px; background: #f2f2f7; color: #333;">恢复默认壁纸</button>
+                <div style="font-size: 12px; color: #999; margin-top: 10px; text-align: center;">建议使用竖图，壁纸会自动压缩后保存</div>
+            </div>
+        </div>
+
         <!-- 全局CSS模态框 -->
         <div id="global-css-modal" class="modal-overlay">
             <div class="modal-window" style="max-height: 80vh; overflow-y: auto;">
@@ -501,7 +570,10 @@ function renderCustomizeForm() {
                 <div class="form-group" style="margin-top: 15px; margin-bottom: 15px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                         <label for="global-beautification-css" style="font-weight: bold; font-size: 14px; color: var(--primary-color); margin-bottom: 0;">CSS代码</label>
-                        <button type="button" id="apply-global-css-now-btn" class="btn btn-primary btn-small" style="width:auto;">立即应用</button>
+                        <div style="display:flex;gap:8px;">
+                            <button type="button" id="global-css-clear-btn" class="btn btn-small" style="width:auto;padding:4px 10px;">清空</button>
+                            <button type="button" id="apply-global-css-now-btn" class="btn btn-primary btn-small" style="width:auto;">立即应用</button>
+                        </div>
                     </div>
                     <textarea id="global-beautification-css" class="form-group" rows="8" placeholder="在此输入CSS代码..." style="width:100%; border:1px solid #eee; border-radius:8px; padding:10px; font-family: monospace; font-size: 12px;"></textarea>
                 </div>

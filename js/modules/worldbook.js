@@ -288,6 +288,11 @@ async function setupWorldBookApp() {
         switchScreen('edit-world-book-screen');
     });
     
+    // 导入文档
+    document.getElementById('wb-menu-import-doc').addEventListener('click', () => {
+        importWorldBookDocument();
+    });
+
     editWorldBookForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const name = worldBookNameInput.value.trim();
@@ -669,3 +674,87 @@ document.addEventListener('DOMContentLoaded', () => {
         cancelBtn.addEventListener('click', closeWorldBookSelector);
     }
 });
+
+// --- 导入文档：把 txt / md / json 文档转成世界书条目 ---
+function splitDocumentIntoEntries(text, baseName) {
+    const normalized = String(text || '').replace(/\r\n/g, '\n').trim();
+    if (!normalized) return [];
+    const blocks = normalized.split(/\n(?=#\s+)/);
+    const rows = [];
+    blocks.forEach((block, index) => {
+        const trimmed = block.trim();
+        if (!trimmed) return;
+        const match = trimmed.match(/^#\s+(.+?)\n([\s\S]*)$/);
+        if (match) {
+            const title = match[1].trim();
+            const content = match[2].trim();
+            if (content) rows.push({ name: `${baseName} · ${title}`, content });
+        } else {
+            rows.push({ name: blocks.length > 1 ? `${baseName} ${index + 1}` : baseName, content: trimmed });
+        }
+    });
+    return rows;
+}
+
+function parseWorldBookDocument(raw, fileName) {
+    const baseName = (fileName || '导入文档').replace(/\.[^.]+$/, '').trim() || '导入文档';
+    if (/\.json$/i.test(fileName || '')) {
+        let data;
+        try {
+            data = JSON.parse(raw);
+        } catch (error) {
+            showToast('JSON 解析失败');
+            return [];
+        }
+        const list = Array.isArray(data)
+            ? data
+            : (Array.isArray(data.entries) ? data.entries : [data]);
+        const rows = [];
+        list.forEach((item, index) => {
+            if (!item || typeof item !== 'object') return;
+            const name = String(item.name || item.title || item.comment || `${baseName}${list.length > 1 ? ' ' + (index + 1) : ''}`).trim();
+            const content = String(item.content || item.text || item.value || item.description || '').trim();
+            if (name && content) rows.push({ name, content });
+        });
+        return rows;
+    }
+    return splitDocumentIntoEntries(raw, baseName);
+}
+
+function importWorldBookDocument() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.txt,.md,.markdown,.json,text/plain,application/json';
+    input.addEventListener('change', () => {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            const rows = parseWorldBookDocument(String(event.target.result || ''), file.name);
+            if (!rows.length) {
+                showToast('文档内容为空或无法识别');
+                return;
+            }
+            const currentFolderId = wbPathStack[wbPathStack.length - 1].id;
+            const stamp = Date.now();
+            rows.forEach((row, index) => {
+                db.worldBooks.push({
+                    id: `wb_doc_${stamp}_${index}`,
+                    parentId: currentFolderId,
+                    type: 'entry',
+                    name: row.name.slice(0, 60),
+                    content: row.content,
+                    position: 'before',
+                    category: '',
+                    depth: 100
+                });
+            });
+            await saveData();
+            renderWorldBookList();
+            showToast(`已导入 ${rows.length} 条世界书条目`);
+        };
+        reader.onerror = () => showToast('文档读取失败');
+        reader.readAsText(file, 'utf-8');
+    });
+    input.click();
+}

@@ -114,6 +114,10 @@ const switchScreen = (targetId) => {
     if (targetId === 'world-book-screen') {
         if (typeof renderWorldBookList === 'function') renderWorldBookList();
     }
+
+    if (targetId === 'presets-screen') {
+        if (typeof renderPresetsList === 'function') renderPresetsList();
+    }
 };
 
 function renderMoreScreen() {
@@ -478,7 +482,7 @@ function setupHomeScreen() {
     const allItems = {
         'app-chat': `<div class="grid-item-1x1" data-id="app-chat"><a href="#" class="app-icon" data-target="chat-list-screen"><img src="${getIcon('chat-list-screen')}" alt="404" class="icon-img"><span class="app-name">${defaultIcons['chat-list-screen'].name}</span></a></div>`,
         'app-api': `<div class="grid-item-1x1" data-id="app-api"><a href="#" class="app-icon" data-target="api-settings-screen"><img src="${getIcon('api-settings-screen')}" alt="API" class="icon-img"><span class="app-name">${defaultIcons['api-settings-screen'].name}</span></a></div>`,
-        'app-wallpaper': `<div class="grid-item-1x1" data-id="app-wallpaper"><a href="#" class="app-icon" data-target="wallpaper-screen"><img src="${getIcon('wallpaper-screen')}" alt="Wallpaper" class="icon-img"><span class="app-name">${defaultIcons['wallpaper-screen'].name}</span></a></div>`,
+        'app-presets': `<div class="grid-item-1x1" data-id="app-presets"><a href="#" class="app-icon" data-target="presets-screen"><img src="${getIcon('presets-screen')}" alt="Presets" class="icon-img"><span class="app-name">${defaultIcons['presets-screen'].name}</span></a></div>`,
         'app-worldbook': `<div class="grid-item-1x1" data-id="app-worldbook"><a href="#" class="app-icon" data-target="world-book-screen"><img src="${getIcon('world-book-screen')}" alt="World Book" class="icon-img"><span class="app-name">${defaultIcons['world-book-screen'].name}</span></a></div>`,
         'app-customize': `<div class="grid-item-1x1" data-id="app-customize"><a href="#" class="app-icon" data-target="customize-screen"><img src="${getIcon('customize-screen')}" alt="Customize" class="icon-img"><span class="app-name">${defaultIcons['customize-screen'].name}</span></a></div>`,
         'app-tutorial': `<div class="grid-item-1x1" data-id="app-tutorial"><a href="#" class="app-icon" data-target="tutorial-screen"><img src="${getIcon('tutorial-screen')}" alt="Tutorial" class="icon-img"><span class="app-name">${defaultIcons['tutorial-screen'].name}</span></a></div>`,
@@ -539,9 +543,26 @@ function setupHomeScreen() {
     
     // 数据结构迁移与初始化
     if (!db.homeLayoutPages) {
-        const order = db.homeLayoutOrder || ['app-chat', 'app-api', 'app-wallpaper', 'app-worldbook', 'app-customize', 'app-tutorial', 'app-widget-market'];
+        const order = db.homeLayoutOrder || ['app-chat', 'app-api', 'app-presets', 'app-worldbook', 'app-customize', 'app-tutorial', 'app-widget-market'];
         db.homeLayoutPages = calculatePagesFromIds(order, allItems);
         saveData();
+    }
+
+    // 4.1.0：原「壁纸」图标位置改为「预设」App（保留用户自定义的排序）
+    if (Array.isArray(db.homeLayoutPages)) {
+        let layoutMigrated = false;
+        const seenIds = new Set();
+        db.homeLayoutPages = db.homeLayoutPages.map(page => page.map(id => {
+            let nextId = id === 'app-wallpaper' ? 'app-presets' : id;
+            if (nextId !== id) layoutMigrated = true;
+            if (seenIds.has(nextId)) {
+                layoutMigrated = true;
+                return null;
+            }
+            seenIds.add(nextId);
+            return nextId;
+        }).filter(Boolean));
+        if (layoutMigrated) saveData();
     }
 
     // 检查是否有新添加但未在分页中的项目
@@ -808,6 +829,7 @@ function setupHomeScreen() {
             if (isHomeEditMode) return; // 编辑模式下禁止点击
             const target = icon.getAttribute('data-target');
             if (target === 'world-book-screen') renderWorldBookList();
+            else if (target === 'presets-screen') renderPresetsList();
             else if (target === 'customize-screen') renderCustomizeForm();
             else if (target === 'tutorial-screen') renderTutorialContent();
             else if (target === 'widget-market-screen') {

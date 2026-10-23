@@ -74,6 +74,11 @@ function setupPeekFeature() {
         peekActionSheet.classList.remove('visible');
         renderMomentsScreen();
         switchScreen('moments-screen');
+        // 默认加载角色的日常 / 碎碎念
+        const char = db.characters.find(c => c.id === currentChatId);
+        if (char && !(char.moments || []).length) {
+            generateMomentsPosts({ silent: true });
+        }
     });
 
     peekConfirmNo?.addEventListener('click', () => {
@@ -242,10 +247,14 @@ function setupMomentsFeature() {
         }
     });
 
-    // 刷新按钮
+    // 刷新按钮：让角色依据人设 / 世界书调用 API 发新朋友圈
     refreshBtn?.addEventListener('click', () => {
-        renderMomentsScreen();
-        showToast('动态已刷新');
+        const char = db.characters.find(c => c.id === currentChatId);
+        if (!char) {
+            showToast('请先进入某个角色的聊天');
+            return;
+        }
+        generateMomentsPosts({ silent: false });
     });
 
     // 点击角色签名，由用户直接修改
@@ -509,7 +518,7 @@ function renderMomentsScreen() {
     const moments = char.moments || [];
 
     if (moments.length === 0) {
-        feedContainer.innerHTML = '<div style="text-align: center; padding: 50px; color: #999;">暂无动态</div>';
+        feedContainer.innerHTML = `<div style="text-align: center; padding: 50px; color: #999;">${momentsGenerating ? '正在读取 Ta 的朋友圈…' : '还没有动态，点右上角刷新试试'}</div>`;
         return;
     }
 
@@ -615,6 +624,155 @@ function renderMomentsScreen() {
     });
 
     feedContainer.innerHTML = html;
+}
+
+function parseMomentsJson(text) {
+    if (!text) return null;
+    let raw = String(text).trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+    try {
+        return JSON.parse(raw);
+    } catch (error) { }
+    const start = raw.indexOf('{');
+    const end = raw.lastIndexOf('}');
+    if (start >= 0 && end > start) {
+        try {
+            return JSON.parse(raw.slice(start, end + 1));
+        } catch (error) { }
+    }
+    return null;
+}
+
+let momentsGenerating = false;
+
+// 让角色依据人设 + 世界书调用 API 发朋友圈
+async function generateMomentsPosts(options = {}) {
+    const char = db.characters.find(c => c.id === currentChatId);
+    if (!char) return false;
+    if (momentsGenerating) {
+        showToast('正在生成中，请稍候…');
+        return false;
+    }
+
+    let apiConfig = null;
+    try {
+        apiConfig = resolveAuxiliaryApiConfig('peek');
+    } catch (error) {
+        apiConfig = null;
+    }
+    if (!apiConfig || !apiConfig.url || !apiConfig.key || !apiConfig.model) {
+        showToast('请先在 API 设置里配置好接口，角色才能发朋友圈');
+        return false;
+    }
+
+    const refreshBtn = document.getElementById('moments-refresh-btn');
+    momentsGenerating = true;
+    if (refreshBtn) refreshBtn.style.opacity = '0.4';
+    if (!options.silent) showToast('正在读取 Ta 的朋友圈…');
+    if (!(char.moments || []).length) renderMomentsScreen();
+
+    try {
+        const worldBook = position => (char.worldBookIds || [])
+            .map(id => db.worldBooks.find(wb => wb.id === id && wb.position === position))
+            .filter(Boolean)
+            .sort((a, b) => (a.depth || 100) - (b.depth || 100))
+            .map(wb => wb.content).join('\n');
+
+        const presetSection = (typeof buildPresetPromptSection === 'function')
+            ? buildPresetPromptSection('peek', char)
+            : { beforeSettings: '', afterSettings: '', beforeReply: '' };
+
+        let historySlice = (char.history || []).slice(-24);
+        if (typeof filterHistoryForAI === 'function') {
+            historySlice = filterHistoryForAI(char, historySlice);
+        }
+        const chatContext = historySlice.map(m => m.content).filter(Boolean).join('\n');
+
+        const count = 3 + Math.floor(Math.random() * 3);
+        let prompt = `你正在扮演「${char.realName}」，请为 Ta 的微信朋友圈生成 ${count} 条新动态。\n`;
+        prompt += `角色名：${char.realName}${char.myName ? `；对用户的称呼：${char.myName}` : ''}${char.status ? `；当前状态：${char.status}` : ''}\n`;
+
+        const limitBreak = worldBook('limit_break');
+        const before = worldBook('before');
+        const after = worldBook('after');
+        const guidelines = worldBook('guidelines');
+        if (limitBreak) prompt += `${limitBreak}\n`;
+        if (presetSection.beforeSettings) prompt += `${presetSection.beforeSettings}\n`;
+        if (before) prompt += `【世界设定】\n${before}\n`;
+        prompt += `【角色人设】\n${char.persona || '无'}\n`;
+        if (after) prompt += `${after}\n`;
+        if (presetSection.afterSettings) prompt += `${presetSection.afterSettings}\n`;
+        if (guidelines) prompt += `${guidelines}\n`;
+        if (char.myPersona) prompt += `【用户人设】\n${char.myPersona}\n`;
+        if (chatContext) prompt += `【最近和用户的聊天记录】\n${chatContext}\n`;
+        if (presetSection.beforeReply) prompt += `${presetSection.beforeReply}\n`;
+
+        prompt += `【写作要求】\n`;
+        prompt += `1. 内容要像真人随手发的朋友圈：日常碎碎念、心情、生活细节、吐槽、小确幸、深夜感慨、配图随想等，不要写成小说旁白，不要替用户发言。\n`;
+        prompt += `2. 每条 15-90 字，口语化，可带 emoji 和 #话题，符合角色的说话习惯和当前关系。\n`;
+        prompt += `3. 可以附带 0-2 条好友评论（评论者可以是角色社交圈里的朋友）。\n`;
+        prompt += `4. 只输出 JSON，不要 markdown 代码块，不要任何解释。格式：{"posts":[{"content":"正文","imageDescription":"可选的配图画面描述","comments":[{"author":"评论者名字","content":"评论内容"}]}]}\n`;
+
+        const { requestBody, endpoint, headers } = buildChatApiRequest(
+            apiConfig,
+            [{ role: 'user', content: prompt }],
+            { temperature: 0.95 }
+        );
+        const raw = await fetchAiResponse(apiConfig, requestBody, headers, endpoint);
+        const data = parseMomentsJson(raw);
+        const posts = data && Array.isArray(data.posts) ? data.posts : (Array.isArray(data) ? data : []);
+
+        if (!posts.length) {
+            showToast('没有生成出新动态，请重试');
+            return false;
+        }
+
+        if (!Array.isArray(char.moments)) char.moments = [];
+        const existing = new Set(char.moments.map(m => String(m.content || '').trim()));
+        let added = 0;
+        posts.slice(0, 6).forEach((post, index) => {
+            const content = String(post && (post.content || post.text) || '').trim();
+            if (!content || existing.has(content)) return;
+            existing.add(content);
+            const minutesAgo = 4 + index * 37 + Math.floor(Math.random() * 25);
+            const comments = (Array.isArray(post.comments) ? post.comments : [])
+                .filter(c => c && (c.content || c.text))
+                .slice(0, 4)
+                .map((c, ci) => ({
+                    id: `comment_${Date.now()}_${index}_${ci}`,
+                    author: String(c.author || c.name || '好友'),
+                    content: String(c.content || c.text),
+                    timestamp: Date.now() - minutesAgo * 60000 + ci * 1000
+                }));
+            char.moments.unshift({
+                id: `moment_${Date.now()}_${index}`,
+                author: char.realName,
+                content,
+                imageDescription: String(post.imageDescription || post.image || '').trim(),
+                timestamp: Date.now() - minutesAgo * 60000,
+                likes: [],
+                comments
+            });
+            added += 1;
+        });
+
+        if (!added) {
+            showToast('没有新的朋友圈内容');
+            return false;
+        }
+
+        await saveData();
+        renderMomentsScreen();
+        showToast(`Ta 更新了 ${added} 条朋友圈`);
+        return true;
+    } catch (error) {
+        console.error('生成朋友圈失败:', error);
+        if (typeof showApiError === 'function') showApiError(error);
+        else showToast(`生成失败：${error.message || error}`);
+        return false;
+    } finally {
+        momentsGenerating = false;
+        if (refreshBtn) refreshBtn.style.opacity = '';
+    }
 }
 
 function formatMomentTime(timestamp) {
@@ -1727,8 +1885,15 @@ function generatePeekContentPrompt(char, appType, mainChatContext) {
 
     let prompt = `你正在模拟一个名为 ${char.realName} 的角色的手机内部信息。`;
 
+    const presetSection = (typeof buildPresetPromptSection === 'function')
+        ? buildPresetPromptSection('peek', char)
+        : { beforeSettings: '', afterSettings: '', beforeReply: '', hasContent: false };
+
     if (worldBooksLimitBreak) {
         prompt += `\n${worldBooksLimitBreak}\n`;
+    }
+    if (presetSection.beforeSettings) {
+        prompt += `\n${presetSection.beforeSettings}\n`;
     }
     if (worldBooksBefore) {
         prompt += `\n为了更好地理解背景，请参考以下世界观设定：\n${worldBooksBefore}\n`;
@@ -1737,6 +1902,10 @@ function generatePeekContentPrompt(char, appType, mainChatContext) {
 
     if (worldBooksAfter) {
         prompt += `\n${worldBooksAfter}\n`;
+    }
+
+    if (presetSection.afterSettings) {
+        prompt += `\n${presetSection.afterSettings}\n`;
     }
 
     if (worldBooksGuidelines) {
@@ -1749,6 +1918,9 @@ function generatePeekContentPrompt(char, appType, mainChatContext) {
 
     prompt += `最近，我（称呼为 ${char.myName}）和 ${char.realName} 的对话如下（这是你们关系和当前状态的核心参考）：\n---\n${mainChatContext}\n---\n`;
     prompt += `现在，我正在偷看Ta手机上的“${appName}”。请你基于Ta的人设和我们最近的聊天内容，生成符合该应用场景的、高度相关且富有沉浸感的内容。\n`;
+    if (presetSection.beforeReply) {
+        prompt += `\n${presetSection.beforeReply}\n`;
+    }
     
     if (char.bilingualModeEnabled) {
         prompt += `✨双语模式特别指令✨：当Ta的母语为中文以外的语言时，你的app内容文本**必须**遵循双语模式下的形式：{外语原文}「中文翻译」,例如: Of course, I'd love to.「当然，我很乐意。」,主要语言逻辑为角色母语，中文翻译文本视为系统自翻译，不视为原话;当需要表达中文时，需要根据角色设定自行判断对于中文的熟悉程度。这条规则的优先级非常高，请务必遵守。\n`;

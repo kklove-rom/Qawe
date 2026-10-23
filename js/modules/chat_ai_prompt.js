@@ -1,4 +1,7 @@
 function generatePrivateSystemPrompt(character) {
+    const presetSection = (typeof buildPresetPromptSection === 'function')
+        ? buildPresetPromptSection('chat', character)
+        : { beforeSettings: '', afterSettings: '', beforeReply: '', hasContent: false };
     const worldBooksLimitBreak = (character.worldBookIds || []).map(id => db.worldBooks.find(wb => wb.id === id && wb.position === 'limit_break')).filter(Boolean).sort((a, b) => (a.depth || 100) - (b.depth || 100)).map(wb => wb.content).join('\n');
     const worldBooksBefore = (character.worldBookIds || []).map(id => db.worldBooks.find(wb => wb.id === id && wb.position === 'before')).filter(Boolean).sort((a, b) => (a.depth || 100) - (b.depth || 100)).map(wb => wb.content).join('\n');
     const worldBooksAfter = (character.worldBookIds || []).map(id => db.worldBooks.find(wb => wb.id === id && wb.position === 'after')).filter(Boolean).sort((a, b) => (a.depth || 100) - (b.depth || 100)).map(wb => wb.content).join('\n');
@@ -18,6 +21,7 @@ function generatePrivateSystemPrompt(character) {
     
     if (promptVersion === 'tt') {
         if (worldBooksLimitBreak) prompt += `${worldBooksLimitBreak}\n`;
+        if (presetSection.beforeSettings) prompt += `${presetSection.beforeSettings}\n`;
         
         prompt += `[世界定义]\n一个真实的线上聊天软件。\n当前时间：现在是 ${currentTime}。你应知晓当前时间，但除非对话内容明确相关，否则不要主动提及或评论时间（例如，不要催促我睡觉）\n当前你主控的名字是：${character.realName}，正在与你聊天的是：${character.myName}。\n\n`;
         
@@ -72,6 +76,7 @@ function generatePrivateSystemPrompt(character) {
         prompt += `你的角色设定是：${character.persona || "无"}\n`;
         if (worldBooksAfter) prompt += `${worldBooksAfter}\n`;
         prompt += `</角色设定>\n\n`;
+        if (presetSection.afterSettings) prompt += `${presetSection.afterSettings}\n`;
 
         const groups = (character.stickerGroups || '').split(/[,，]/).map(s => s.trim()).filter(s => s && s !== '未分类');
         if (groups.length > 0) {
@@ -111,6 +116,7 @@ function generatePrivateSystemPrompt(character) {
         const maxReply = character.replyCountMax || 6;
         prompt += `[对话节奏]\n- 风格：模拟真人聊天节奏\n- 数量：${minReply}-${maxReply}条短消息，保持回复消息数量的随机性，勿陷入固定套路\n- 格式：普通消息为主，其他消息为辅，当最近聊天略显单调时，主动运用其他消息丰富对话、推进剧情\n- 当开启长文本消息时，输出可附带旁白的${character.realName}视角描写\n- 尾声：留给${character.myName}回应的空间\n\n`;
         
+        if (presetSection.beforeReply) prompt += `${presetSection.beforeReply}\n`;
         prompt += `现在，根据用户的最新发言，继续对话吧。\n`;
         
         if (character.myName) {
@@ -133,6 +139,9 @@ function generatePrivateSystemPrompt(character) {
     if (worldBooksBefore) {
         prompt += `${worldBooksBefore}\n`;
     }
+    if (presetSection.beforeSettings) {
+        prompt += `${presetSection.beforeSettings}\n`;
+    }
     prompt += `<char_settings>\n`;
     prompt += `1. 你的角色名是：${character.realName}。我的称呼是：${character.myName}。你的当前状态是：${character.status}。\n`;
     prompt += `2. 你的角色设定是：${character.persona || "一个友好、乐于助人的伙伴。"}\n`;
@@ -143,6 +152,9 @@ function generatePrivateSystemPrompt(character) {
         prompt += `${worldBooksGuidelines}\n`;
     }
     prompt += `</char_settings>\n\n`;
+    if (presetSection.afterSettings) {
+        prompt += `${presetSection.afterSettings}\n\n`;
+    }
     prompt += `<user_settings>\n`
     if (character.myPersona) {
         prompt += `3. 关于我的人设：${character.myPersona}\n`;
@@ -319,6 +331,9 @@ v) 更新签名：[${character.realName}更新了个性签名：xxx]。`;
 
     prompt += `</Chatting Guidelines>\n`
 
+    if (presetSection.beforeReply) {
+        prompt += `${presetSection.beforeReply}\n`;
+    }
     prompt += `21. 不要主动终止聊天进程，除非我明确提出。保持你的人设，自然地进行对话。`;
     
     if (character.myName) {

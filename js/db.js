@@ -80,6 +80,7 @@ const defaultIcons = {
     'chat-list-screen': {name: '404', url: 'https://i.postimg.cc/VvQB8dQT/chan-143.png'},
     'api-settings-screen': {name: 'api', url: 'https://i.postimg.cc/50FqT8GL/chan-125.png'},
     'wallpaper-screen': {name: '壁纸', url: 'https://i.postimg.cc/3wqFttL3/chan-90.png'},
+    'presets-screen': {name: '预设', url: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="pg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8B5CFF"/><stop offset="1" stop-color="#3E8BFF"/></linearGradient></defs><rect width="100" height="100" rx="24" fill="url(#pg)"/><g stroke="#ffffff" stroke-width="6" stroke-linecap="round" opacity="0.92"><line x1="26" y1="32" x2="74" y2="32"/><line x1="26" y1="50" x2="74" y2="50"/><line x1="26" y1="68" x2="74" y2="68"/></g><g fill="#ffffff"><circle cx="40" cy="32" r="8"/><circle cx="62" cy="50" r="8"/><circle cx="34" cy="68" r="8"/></g></svg>')},
     'world-book-screen': {name: '世界书', url: 'https://i.postimg.cc/prCWkrKT/chan-74.png'},
     'customize-screen': {name: '自定义', url: 'https://i.postimg.cc/vZVdC7gt/chan-133.png'},
     'font-settings-screen': {name: '字体', url: 'https://i.postimg.cc/FzVtC0x4/chan-21.png'},
@@ -165,12 +166,23 @@ const globalSettingKeys = [
     'cotSettings', 'cotPresets', 'hasSeenVideoCallDisclaimer', 'hasSeenVideoCallAvatarHint',
     'workshopSettings', 'workshopLlmPresets', 'workshopPromptPresets', 'homeLayoutOrder',
     'homeLayoutPages', 'widgetTemplates', 'addedWidgets', 'backupReminderSettings',
-    'stUnlocked', 'installedStoreApps'
+    'stUnlocked', 'installedStoreApps', 'presets'
 ];
 
 
-const appVersion = "4.0.0";
+const appVersion = "4.1.0";
 const updateLog = [
+    {
+        version: "4.1.0",
+        date: "2026-10-23",
+        notes: [
+            "news:",
+            "1.世界书右上角「+」新增「导入文档」，可直接把 txt / md / json 文档变成世界书条目；全局CSS美化新增「清空」按钮。",
+            "2.新增「预设」App：可导入 SillyTavern 预设，栏目可单独开关、折叠、删除，长按 3 秒改名，展开后可设置插入位置与内容；支持全局套用到聊天回复、通话、线下模式、动态与查手机。",
+            "3.聊天页右上角第一个按钮进入的动态页改为「朋友圈」，默认加载角色的日常与碎碎念，修复刷新按钮；角色现在会依据人设与世界书调用 API 发帖。",
+            "4.更多隐藏玩法待挖掘，可使用《Store应用开发提示词》文档自行游玩(◦˙▽˙◦)★",
+        ]
+    },
     {
         version: "4.0.0",
         date: "2026-10-21",
@@ -180,9 +192,8 @@ const updateLog = [
             "源代码来源：EE、1900、莫由（论坛功能by莫由）",
             "—————————————",
             "news:",
-            "1.增加Store商店",
-            "2.修改了默认壁纸",
-            "3.更多隐藏玩法待挖掘，可使用《Store应用开发提示词》文档自行游玩(◦˙▽˙◦)★",
+            "1.更新默认壁纸",
+            "2.新增Store商店，更多隐藏玩法待挖掘，可使用《Store应用开发提示词》文档自行游玩(◦˙▽˙◦)★",
         ]
     },
     {
@@ -210,6 +221,7 @@ var db = {
     worldBooks: [],
     fontUrl: '',
     customIcons: {},
+    presets: [],
     apiPresets: [],
     bubbleCssPresets: [],
     myPersonaPresets: [],
@@ -432,7 +444,7 @@ function initDatabase() {
             },
             workshopLlmPresets: [],
             workshopPromptPresets: [],
-            homeLayoutOrder: ['widget-top', 'widget-ins', 'app-chat', 'app-api', 'app-wallpaper', 'app-worldbook', 'app-customize', 'app-tutorial', 'widget-heart'],
+            homeLayoutOrder: ['widget-top', 'widget-ins', 'app-chat', 'app-api', 'app-presets', 'app-worldbook', 'app-customize', 'app-tutorial', 'widget-heart'],
             widgetTemplates: [],
             addedWidgets: []
         };
@@ -506,6 +518,7 @@ const loadData = async () => {
             homeScreenMode: 'night',
             fontUrl: '',
             customIcons: {},
+            presets: [],
             apiPresets: [],
             bubbleCssPresets: [],
             myPersonaPresets: [],
@@ -533,7 +546,7 @@ const loadData = async () => {
             },
             workshopLlmPresets: [],
             workshopPromptPresets: [],
-            homeLayoutOrder: ['widget-top', 'widget-ins', 'app-chat', 'app-api', 'app-wallpaper', 'app-worldbook', 'app-customize', 'app-tutorial', 'widget-heart'],
+            homeLayoutOrder: ['widget-top', 'widget-ins', 'app-chat', 'app-api', 'app-presets', 'app-worldbook', 'app-customize', 'app-tutorial', 'widget-heart'],
             homeLayoutPages: null,
             backupReminderSettings: { enabled: true, interval: 3, lastReminderTime: 0 },
             stUnlocked: false,

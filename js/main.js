@@ -117,6 +117,7 @@ const init = async () => {
     
     // 错误处理包裹的模块初始化
     try { setupWorldBookApp(); } catch(e) { console.error("setupWorldBookApp failed:", e); }
+    try { setupPresetsApp(); } catch(e) { console.error("setupPresetsApp failed:", e); }
     try { setupGroupChatSystem(); } catch(e) { console.error("setupGroupChatSystem failed:", e); }
     try { setupCustomizeApp(); } catch(e) { console.error("setupCustomizeApp failed:", e); }
     try { setupTutorialApp(); } catch(e) { console.error("setupTutorialApp failed:", e); }

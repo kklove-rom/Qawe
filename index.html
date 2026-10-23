@@ -37,6 +37,7 @@
     <link rel="stylesheet" href="css/modules/moments.css?v=20261021c">
     <link rel="stylesheet" href="css/modules/search.css?v=20261021c">
     <link rel="stylesheet" href="css/modules/worldbook.css?v=20261021c">
+    <link rel="stylesheet" href="css/modules/presets.css?v=20261023a">
     <link rel="stylesheet" href="css/modules/journal.css?v=20261021c">
     <link rel="stylesheet" href="css/modules/chat_archives.css?v=20261021c">
     <link rel="stylesheet" href="css/modules/steps.css?v=20261021c">
@@ -271,6 +272,7 @@
                 <div id="world-book-new-menu" class="world-book-new-menu" style="display: none;">
                     <div class="menu-item" id="wb-menu-new-folder">新建文件夹</div>
                     <div class="menu-item" id="wb-menu-new-entry">新建条目</div>
+                    <div class="menu-item" id="wb-menu-import-doc">导入文档</div>
                 </div>
             </div>
         </header>
@@ -327,6 +329,55 @@
                 </div>
                 <button type="submit" class="btn btn-primary">保存条目</button>
             </form>
+        </main>
+    </div>
+    <!-- 预设 App 列表 -->
+    <div id="presets-screen" class="screen">
+        <header class="app-header">
+            <button class="back-btn" data-target="home-screen">‹</button>
+            <div class="title-container">
+                <h1 class="title" id="presets-title">预设</h1>
+            </div>
+            <div class="action-btn-group" style="position: relative;">
+                <button class="action-btn" id="add-preset-btn">+</button>
+                <div id="presets-new-menu" class="world-book-new-menu" style="display: none;">
+                    <div class="menu-item" id="preset-menu-new">新建预设</div>
+                    <div class="menu-item" id="preset-menu-import">导入 SillyTavern 预设</div>
+                </div>
+            </div>
+        </header>
+        <main class="content" style="padding: 16px;">
+            <div id="presets-list-container" class="preset-list"></div>
+            <div id="no-presets-placeholder" class="preset-empty">
+                <div style="font-size: 36px; margin-bottom: 8px;">✧</div>
+                <div>还没有预设</div>
+                <div style="font-size: 12px; color: #bbb; margin-top: 6px;">点击右上角「+」导入 SillyTavern 预设</div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 预设详情 -->
+    <div id="preset-detail-screen" class="screen">
+        <header class="app-header">
+            <button class="back-btn" id="preset-detail-back-btn">‹</button>
+            <div class="title-container">
+                <h1 class="title" id="preset-detail-title">预设</h1>
+            </div>
+            <div class="action-btn-group">
+                <button class="action-btn" id="add-preset-item-btn" title="新增栏目">+</button>
+            </div>
+        </header>
+        <main class="content" id="preset-detail-content" style="padding: 16px;">
+            <div class="preset-apply-card">
+                <div class="preset-apply-title">全局套用</div>
+                <label class="preset-check"><input type="checkbox" data-apply="chat"> char 聊天回复</label>
+                <label class="preset-check"><input type="checkbox" data-apply="call"> 通话时套用</label>
+                <label class="preset-check"><input type="checkbox" data-apply="offline"> 进入线下模式套用</label>
+                <label class="preset-check"><input type="checkbox" data-apply="peek"> char 发动态、查手机套用</label>
+                <div class="preset-apply-hint">可多选。勾选后，该预设中开启的栏目会按「插入位置」注入到对应场景的提示词里；「线下模式」当前与聊天回复共用同一套提示词。</div>
+            </div>
+            <div class="preset-items" id="preset-items-container"></div>
+            <button type="button" id="delete-preset-btn" class="preset-delete-btn">删除此预设</button>
         </main>
     </div>
     <div id="api-settings-screen" class="screen">
@@ -1793,7 +1844,7 @@
     <div id="peek-actionsheet" class="action-sheet-overlay">
         <div class="action-sheet">
             <button class="action-sheet-button" id="peek-menu-phone-btn">偷看手机</button>
-            <button class="action-sheet-button" id="peek-menu-moments-btn">动态</button>
+            <button class="action-sheet-button" id="peek-menu-moments-btn">朋友圈</button>
             <button class="action-sheet-button danger" id="peek-menu-cancel-btn">取消</button>
         </div>
     </div>
@@ -1805,7 +1856,7 @@
                 <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
             </button>
             <div class="title-container">
-                <h1 class="title" id="moments-title" style="opacity: 0; transition: opacity 0.3s;">动态</h1>
+                <h1 class="title" id="moments-title" style="opacity: 0; transition: opacity 0.3s;">朋友圈</h1>
             </div>
             <div class="action-btn-group">
                 <button class="action-btn" id="moments-refresh-btn">
@@ -2725,18 +2776,18 @@
 
 <!-- [1. 基础层] -->
 <script src="js/utils.js?v=20261021c"></script>    <!-- 工具函数：图片压缩、Toast提示、随机数等 -->
-<script src="js/db.js?v=20261021p"></script>       <!-- 数据层：Dexie数据库配置、全局变量定义、数据存取 -->
+<script src="js/db.js?v=20261023a"></script>       <!-- 数据层：Dexie数据库配置、全局变量定义、数据存取 -->
 
 <!-- [2. 核心交互层] -->
-<script src="js/ui.js?v=20261021p"></script>       <!-- UI交互：界面切换、主屏幕逻辑、右键菜单 -->
+<script src="js/ui.js?v=20261023a"></script>       <!-- UI交互：界面切换、主屏幕逻辑、右键菜单 -->
 <!-- Chat Modules -->
 <script src="js/modules/chat_list.js?v=20261021c"></script>
 <script src="js/modules/character_import.js?v=20261021c"></script>
 <script src="js/modules/chat_render.js?v=20261021c"></script>
 <script src="js/modules/chat_archives.js?v=20261021c"></script>
     <script src="js/modules/chat_ai_airdrop.js?v=20261021c"></script>
-    <script src="js/modules/chat_ai_prompt.js?v=20261021c"></script>
-    <script src="js/modules/chat_ai_call.js?v=20261021c"></script>
+    <script src="js/modules/chat_ai_prompt.js?v=20261023a"></script>
+    <script src="js/modules/chat_ai_call.js?v=20261023a"></script>
     <script src="js/modules/chat_ai.js?v=20261021c"></script>
 <script src="js/modules/chat_features.js?v=20261021c"></script>
 <script src="js/modules/chat_ops.js?v=20261021c"></script>
@@ -2752,12 +2803,13 @@
 <script src="js/modules/keep_alive.js?v=20261021c"></script> <!-- 跨平台持续运行增强 -->
 <script src="js/modules/settings_api.js?v=20261021c"></script> <!-- API 设置与预设 -->
 <script src="js/modules/settings_presets.js?v=20261021c"></script> <!-- 预设管理 (气泡、人设等) -->
-<script src="js/modules/settings_customize.js?v=20261021p"></script> <!-- 个性化与外观设置 -->
+<script src="js/modules/settings_customize.js?v=20261023a"></script> <!-- 个性化与外观设置 -->
 
 <!-- [3. 独立功能模块 (Plugins)] -->
 <script src="js/modules/sticker.js?v=20261021c"></script>   <!-- 表情包管理系统 -->
-<script src="js/modules/worldbook.js?v=20261021c"></script> <!-- 世界书设定集 -->
-<script src="js/modules/peek.js?v=20261021c"></script>      <!-- 偷看手机(相册/短信等) -->
+<script src="js/modules/worldbook.js?v=20261023a"></script> <!-- 世界书设定集 -->
+<script src="js/modules/presets.js?v=20261023a"></script> <!-- 预设 App（SillyTavern 预设导入） -->
+<script src="js/modules/peek.js?v=20261023a"></script>      <!-- 偷看手机(相册/短信等) -->
 <script src="js/modules/journal.js?v=20261021c"></script>   <!-- 回忆日记生成 -->
 <script src="js/modules/storage_html.js?v=20261021c"></script> <!-- 存储空间HTML注入 -->
 <script src="js/modules/storage.js?v=20261021c"></script>   <!-- 存储空间分析图表 -->
@@ -2784,6 +2836,6 @@
 <script src="js/modules/app_store.js?v=20261021q"></script> <!-- 应用商店模块 -->
 
 <!-- [4. 程序入口] -->
-<script src="js/main.js?v=20261021c"></script>     <!-- 主入口：初始化(init)、全局事件监听 -->
+<script src="js/main.js?v=20261023a"></script>     <!-- 主入口：初始化(init)、全局事件监听 -->
 </body>
 </html>

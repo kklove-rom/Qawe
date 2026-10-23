@@ -1,0 +1,337 @@
+/* --- 预设 App (css/modules/presets.css) --- */
+
+#presets-screen,
+#preset-detail-screen {
+    background: #fff;
+}
+
+#presets-screen .content,
+#preset-detail-screen .content {
+    height: calc(100% - 44px - env(safe-area-inset-top));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* 预设列表 */
+.preset-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.preset-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    background: #fff;
+    border: 1px solid #f0f0f2;
+    border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .03);
+    transition: transform .12s ease, background .12s ease;
+}
+
+.preset-card:active {
+    transform: scale(.985);
+    background: #fafafa;
+}
+
+.preset-card-icon {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #7c5cff, #4a8bff);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 20px;
+}
+
+.preset-card-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.preset-card-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: #222;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.preset-card-meta {
+    font-size: 12px;
+    color: #999;
+    margin-top: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.preset-empty {
+    text-align: center;
+    color: #bbb;
+    padding: 80px 20px;
+    font-size: 14px;
+}
+
+/* 预设详情 */
+.preset-apply-card {
+    background: #f8f8fb;
+    border: 1px solid #eeeef2;
+    border-radius: 14px;
+    padding: 14px;
+    margin-bottom: 16px;
+}
+
+.preset-apply-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.preset-apply-title::before {
+    content: '';
+    width: 3px;
+    height: 14px;
+    border-radius: 2px;
+    background: linear-gradient(180deg, #7c5cff, #4a8bff);
+}
+
+.preset-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #555;
+    padding: 6px 0;
+}
+
+.preset-check input[type="checkbox"] {
+    width: 17px;
+    height: 17px;
+    accent-color: var(--primary-color, #007aff);
+}
+
+.preset-apply-hint {
+    font-size: 11px;
+    color: #aaa;
+    margin-top: 6px;
+    line-height: 1.5;
+}
+
+.preset-items {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.preset-item {
+    border: 1px solid #f0f0f2;
+    border-radius: 12px;
+    background: #fff;
+    overflow: hidden;
+    transition: box-shadow .15s ease;
+}
+
+.preset-item.expanded {
+    box-shadow: 0 2px 10px rgba(0, 0, 0, .05);
+    border-color: #e6e6ef;
+}
+
+.preset-item.dragging {
+    opacity: .6;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, .12);
+}
+
+.preset-item-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 10px 12px 14px;
+}
+
+.preset-item-name-wrap {
+    flex: 1;
+    min-width: 0;
+}
+
+.preset-item-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #222;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+}
+
+.preset-item.disabled .preset-item-name,
+.preset-item.disabled .preset-item-preview {
+    color: #b8b8bf;
+}
+
+.preset-item-preview {
+    font-size: 11px;
+    color: #aaa;
+    margin-top: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.preset-item-tools {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex: none;
+}
+
+.preset-icon-btn {
+    width: 28px;
+    height: 28px;
+    border: 0;
+    background: transparent;
+    color: #b0b0b8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border-radius: 8px;
+}
+
+.preset-icon-btn:active {
+    background: #f2f2f5;
+}
+
+.preset-icon-btn.danger:active {
+    background: #ffecec;
+    color: #ff3b30;
+}
+
+.preset-item-grip {
+    cursor: grab;
+    touch-action: none;
+}
+
+.preset-item-body {
+    display: none;
+    padding: 0 14px 14px;
+    border-top: 1px dashed #f0f0f2;
+    padding-top: 12px;
+}
+
+.preset-item.expanded .preset-item-body {
+    display: block;
+}
+
+.preset-field {
+    margin-bottom: 12px;
+}
+
+.preset-field:last-child {
+    margin-bottom: 0;
+}
+
+.preset-field label {
+    display: block;
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 6px;
+}
+
+.preset-field select,
+.preset-field textarea {
+    width: 100%;
+    border: 1px solid #eee;
+    border-radius: 10px;
+    background: #fafafa;
+    padding: 9px 10px;
+    font-size: 13px;
+    color: #333;
+    box-sizing: border-box;
+    font-family: inherit;
+    outline: none;
+}
+
+.preset-field textarea {
+    min-height: 96px;
+    resize: vertical;
+    line-height: 1.55;
+}
+
+.preset-field select:focus,
+.preset-field textarea:focus {
+    border-color: var(--primary-color, #007aff);
+    background: #fff;
+}
+
+.preset-delete-btn {
+    width: 100%;
+    margin: 22px 0 10px;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid #ffd9d9;
+    background: #fff6f6;
+    color: #ff3b30;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.preset-delete-btn:active {
+    background: #ffecec;
+}
+
+/* 开关（复用 kkt 风格，避免依赖全局样式） */
+.preset-switch {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 24px;
+    flex: none;
+}
+
+.preset-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.preset-switch-slider {
+    position: absolute;
+    inset: 0;
+    background: #e5e5ea;
+    border-radius: 999px;
+    transition: background .2s ease;
+}
+
+.preset-switch-slider::before {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    left: 2px;
+    top: 2px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .2);
+    transition: transform .2s ease;
+}
+
+.preset-switch input:checked + .preset-switch-slider {
+    background: var(--primary-color, #007aff);
+}
+
+.preset-switch input:checked + .preset-switch-slider::before {
+    transform: translateX(16px);
+}

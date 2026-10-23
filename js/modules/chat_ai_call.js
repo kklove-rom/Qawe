@@ -52,8 +52,13 @@ async function getCallReply(chat, callType, callContext, onStreamUpdate) {
     
     let systemPrompt = '';
 
+    const presetSection = (typeof buildPresetPromptSection === 'function')
+        ? buildPresetPromptSection('call', chat)
+        : { beforeSettings: '', afterSettings: '', beforeReply: '', hasContent: false };
+
     if (promptVersion === 'tt') {
         if (worldBooksLimitBreak) systemPrompt += `${worldBooksLimitBreak}\n`;
+        if (presetSection.beforeSettings) systemPrompt += `${presetSection.beforeSettings}\n`;
         
         systemPrompt += `[世界定义]\n一个真实的线上聊天软件，当前正在进行${callType === 'video' ? '视频' : '语音'}通话。\n当前时间：现在是 ${currentTime}。你应知晓当前时间，但除非对话内容明确相关，否则不要主动提及或评论时间（例如，不要催促我睡觉）\n当前你主控的名字是：${chat.realName}，正在与你通话的是：${chat.myName}。\n\n`;
         
@@ -82,7 +87,7 @@ async function getCallReply(chat, callType, callContext, onStreamUpdate) {
         systemPrompt += `你的角色设定是：${chat.persona || "无"}\n`;
         if (worldBooksAfter) systemPrompt += `${worldBooksAfter}\n`;
         systemPrompt += `</角色设定>\n\n`;
-        
+        if (presetSection.afterSettings) systemPrompt += `${presetSection.afterSettings}\n\n`;
         if (chat.myPersona) {
             systemPrompt += `<用户人设>\n关于我的人设：${chat.myPersona}\n</用户人设>\n\n`;
         }
@@ -125,6 +130,7 @@ async function getCallReply(chat, callType, callContext, onStreamUpdate) {
         
         systemPrompt += `[对话节奏]\n- 风格：模拟真人通话节奏\n- 数量：可以输出多条消息 \n- 尾声：留给${chat.myName}回应的空间\n\n`;
         
+        if (presetSection.beforeReply) systemPrompt += `${presetSection.beforeReply}\n`;
         systemPrompt += `现在，根据用户的最新发言，继续通话吧。\n`;
         
         if (chat.myName) {
@@ -144,6 +150,9 @@ async function getCallReply(chat, callType, callContext, onStreamUpdate) {
         if (worldBooksBefore) {
             systemPrompt += `${worldBooksBefore}\n`;
         }
+        if (presetSection.beforeSettings) {
+            systemPrompt += `${presetSection.beforeSettings}\n`;
+        }
         systemPrompt += `<char_settings>\n`;
         systemPrompt += `1. 你的角色名是：${chat.realName}。我的称呼是：${chat.myName}。你的当前状态是：${chat.status}。\n`;
         systemPrompt += `2. 你的角色设定是：${chat.persona || "一个友好、乐于助人的伙伴。"}\n`;
@@ -154,6 +163,9 @@ async function getCallReply(chat, callType, callContext, onStreamUpdate) {
             systemPrompt += `${worldBooksGuidelines}\n`;
         }
         systemPrompt += `</char_settings>\n\n`;
+        if (presetSection.afterSettings) {
+            systemPrompt += `${presetSection.afterSettings}\n\n`;
+        }
         systemPrompt += `<user_settings>\n`
         if (chat.myPersona) {
             systemPrompt += `3. 关于我的人设：${chat.myPersona}\n`;
@@ -219,6 +231,7 @@ async function getCallReply(chat, callType, callContext, onStreamUpdate) {
         systemPrompt += `【输出格式】\n`;
         systemPrompt += `请严格按照以下格式输出（可以发送多条）：\n`;
         systemPrompt += `${callType === 'video' ? `[${chat.realName}的画面/环境音：描述画面动作或环境声音]\n[${chat.realName}的声音：${chat.realName}说话的内容]` : `[${chat.realName}的环境音：描述环境声音]\n[${chat.realName}的声音：${chat.realName}说话的内容]`}\n`;
+        if (presetSection.beforeReply) systemPrompt += `\n${presetSection.beforeReply}\n`;
     }
 
     // 2. 构建消息历史
