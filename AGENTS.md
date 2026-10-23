@@ -207,6 +207,7 @@ UwU.callAI(messages, opts)
 UwU.getCharacters()
 UwU.getUserPersonas()
 UwU.getWorldBooks()
+UwU.getPresets()               // 主屏预设（SillyTavern，chat scope）
 UwU.getChatHistory(charId, limit)
 UwU.injectMessage(charId, msg)   // role: 'user' | 'char'
 UwU.toast(text)
@@ -223,17 +224,21 @@ UwU.getAppInfo()
 ### 代码结构
 
 - `app.js`：单文件 IIFE，无框架。
-  - `state`（持久化到 localStorage `xapp_state_v1`）、`host`（角色/世界书/人设缓存）。
-  - `render()` 按 `ui.view` 分发：home / thread / profile / dm / notifs / messages。
+  - `state`（持久化到 localStorage `xapp_state_v1`）、`host`（角色/世界书/人设/预设缓存）。
+  - `render()` 按 `ui.view` 分发：home / thread / profile / dm / notifs / messages / settings / chars / avatars。
   - 事件委托：所有按钮用 `data-act`，在 `document` 的 click 里 switch。
   - 图标：`var I = { home, bell, mail, user, ... }`（`app.js` 约 72 行）。
-  - 底栏：`function botnav()`（`app.js` 约 1050 行），三项 = 首页 / 私信 / 我的。
+  - 底栏：`function botnav()`，四项 = 首页 / 通知 / 私信 / 我的。
     - 首页：原版内联 SVG `I.home`（24×24，`navBtn('home', I.home, 0)`）。
+    - 通知：内联 SVG `I.bell`，带未读数角标。
     - 私信：FontAwesome `regular/envelope.svg`，用 CSS mask 渲染（`class="nav-icon-envelope"`），24×24、跟随底栏配色。
     - 我的：原版内联 SVG `I.user`（24×24，`navBtn('profile', I.user, 0)`）。
+  - 首页顶栏（1.1.0 起）：左侧返回箭头（单击退出 X）→ 中间 X logo → 右侧刷新 → 设置齿轮（`SETTINGS_ICON`，24×24，Feather settings.svg）。
+  - 1.1.0 起不再有侧边抽屉和内置「默认分身」：每个 char 只有 404 同步来的大号 + 用户手动创建的小号（`MAX_ALT = 2`）。
+  - 设置页不再提供「默认世界书」「NPC 档案」入口；角色生成统一使用：404 的 char 人设 + 主屏世界书（按 `worldBookIds` 绑定）+ 主屏预设（`UwU.getPresets()`）+ 主屏 API（`UwU.callAI`）。
   - **旧版代码保留在注释里**：`botnav()` 上方按项列出了上一版写法（首页 / 我的的 FontAwesome 图片写法），
     旧的 `I.home` / `I.user` 内联 SVG 也仍保留在 `I` 图标表里，回退时直接换回即可。
-  - 图标变更记录：1.0.1 之前私信用 `I.mail`；1.0.1 用 `IMG_DM` 图片；1.0.3 起改 FontAwesome 信封；1.0.4 首页/我的曾改 FontAwesome 图片；1.0.5 首页恢复；1.0.6 我的恢复（当前状态：首页 / 我的为原版 SVG，私信为 FontAwesome 信封，均 24×24）。
+  - 图标变更记录：1.0.1 之前私信用 `I.mail`；1.0.1 用 `IMG_DM` 图片；1.0.3 起改 FontAwesome 信封；1.0.4 首页/我的曾改 FontAwesome 图片；1.0.5 首页恢复；1.0.6 我的恢复；1.1.0 通知移入底栏、设置入口移到刷新右侧（当前状态：首页 / 通知 / 我的为内联 SVG，私信为 FontAwesome 信封，均 24×24）。
 - `style.css`：纯 CSS，主题变量在 `:root[data-theme]`。
 - `app.json`：清单（id/name/version/entry/icon）。
 - `_preview.html`：本地预览，注入 `window.__mockBridge` 假宿主。
