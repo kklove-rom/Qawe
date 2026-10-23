@@ -158,7 +158,7 @@ await saveData();
 | 小组件 | `js/modules/widgets.js`、`widget_market.js` | — |
 | Store 应用商店 | `js/modules/app_store.js` | `setupAppStore`、`installFromZipBuffer`、`window.UwU` 桥 |
 | X 小应用 | `_x_app_src/*`（源码）+ `apps/x-social.zip`（产物） | 见第 10 节 |
-| 更新日志 / 教程页 | `js/modules/tutorial.js` + `db.js:updateLog` | — |
+| 更新日志 / 教程页 | `js/modules/tutorial.js` + `db.js:updateLog` | `renderTutorialContent`；教程页底部「清空所有数据」= `clearAllAppData()`（清 IndexedDB / localStorage / 缓存后刷新） |
 
 ### 聊天页「朋友圈」入口
 

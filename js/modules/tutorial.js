@@ -608,6 +608,20 @@ function renderTutorialContent() {
     if(window.GitHubMgr) {
         window.GitHubMgr.init();
     }
+
+    // 危险操作：清空所有数据
+    const clearSection = document.createElement('div');
+    clearSection.innerHTML = `
+        <div style="font-size:0.89rem; color:#999; margin:20px 0 8px;">危险操作</div>
+        <div style="background:#fff; border:1px solid #f3c2c2; border-radius:8px; padding:12px;">
+            <div style="font-size:0.81rem; color:#999; line-height:1.5; margin-bottom:10px;">
+                清空后会删除全部角色、聊天记录、世界书、设置、Store 应用与本地备份配置，且无法恢复。建议先「备份数据」。
+            </div>
+            <button id="clear-all-data-btn" class="btn" style="width:100%; background:#e5484d; color:#fff;">清空所有数据</button>
+        </div>
+    `;
+    tutorialContentArea.appendChild(clearSection);
+    document.getElementById('clear-all-data-btn').addEventListener('click', clearAllAppData);
 }
 
 // 创建完整的备份数据
@@ -1030,6 +1044,56 @@ const GitHubMgr = {
     }
 };
 window.GitHubMgr = GitHubMgr;
+
+// 清空所有数据（角色 / 聊天 / 世界书 / 设置 / 本地数据），完成后重启应用
+async function clearAllAppData() {
+    if (!confirm('⚠️ 清空所有数据\n\n会删除全部角色、聊天记录、世界书、设置、Store 应用与本地备份配置，此操作不可撤销。\n\n建议先点「备份数据」。确定继续吗？')) return;
+    if (!confirm('最后确认：真的要清空所有数据吗？')) return;
+
+    const btn = document.getElementById('clear-all-data-btn');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '正在清空…';
+    }
+
+    try {
+        // 1. 清空 IndexedDB
+        if (typeof dexieDB !== 'undefined' && dexieDB) {
+            const dbName = dexieDB.name;
+            await Promise.all(dexieDB.tables.map(table => table.clear()));
+            dexieDB.close();
+            await new Promise((resolve) => {
+                const req = indexedDB.deleteDatabase(dbName);
+                req.onsuccess = req.onerror = req.onblocked = () => resolve();
+            });
+        }
+
+        // 2. 清空本地存储（含 X 小应用、引导标记、备份配置等）
+        localStorage.clear();
+        sessionStorage.clear();
+
+        // 3. 清空缓存（失败不影响数据清空）
+        try {
+            if (window.caches && caches.keys) {
+                const keys = await caches.keys();
+                await Promise.all(keys.map(k => caches.delete(k)));
+            }
+        } catch (cacheError) {
+            console.warn('清空缓存失败:', cacheError);
+        }
+
+        showToast('所有数据已清空，正在重新启动…');
+        setTimeout(() => window.location.reload(), 800);
+    } catch (e) {
+        console.error('清空数据失败:', e);
+        showToast('清空失败：' + e.message);
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = '清空所有数据';
+        }
+    }
+}
+window.clearAllAppData = clearAllAppData;
 
 // 全局手动备份触发函数
 async function triggerManualBackup() {
