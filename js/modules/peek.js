@@ -672,7 +672,7 @@ async function generateMomentsPosts(options = {}) {
 
     try {
         const worldBook = position => (char.worldBookIds || [])
-            .map(id => db.worldBooks.find(wb => wb.id === id && wb.position === position))
+            .map(id => db.worldBooks.find(wb => wb.id === id && wb.enabled !== false && wb.position === position))
             .filter(Boolean)
             .sort((a, b) => (a.depth || 100) - (b.depth || 100))
             .map(wb => wb.content).join('\n');
@@ -1860,25 +1860,25 @@ function generatePeekContentPrompt(char, appType, mainChatContext) {
     const targetCount = genCounts[appType] || defaultCounts[appType] || 5;
 
     const worldBooksLimitBreak = (char.worldBookIds || [])
-        .map(id => db.worldBooks.find(wb => wb.id === id && wb.position === 'limit_break'))
+        .map(id => db.worldBooks.find(wb => wb.id === id && wb.enabled !== false && wb.position === 'limit_break'))
         .filter(Boolean)
         .sort((a, b) => (a.depth || 100) - (b.depth || 100))
         .map(wb => wb.content).join('\n');
 
     const worldBooksBefore = (char.worldBookIds || [])
-        .map(id => db.worldBooks.find(wb => wb.id === id && wb.position === 'before'))
+        .map(id => db.worldBooks.find(wb => wb.id === id && wb.enabled !== false && wb.position === 'before'))
         .filter(Boolean)
         .sort((a, b) => (a.depth || 100) - (b.depth || 100))
         .map(wb => wb.content).join('\n');
 
     const worldBooksAfter = (char.worldBookIds || [])
-        .map(id => db.worldBooks.find(wb => wb.id === id && wb.position === 'after'))
+        .map(id => db.worldBooks.find(wb => wb.id === id && wb.enabled !== false && wb.position === 'after'))
         .filter(Boolean)
         .sort((a, b) => (a.depth || 100) - (b.depth || 100))
         .map(wb => wb.content).join('\n');
 
     const worldBooksGuidelines = (char.worldBookIds || [])
-        .map(id => db.worldBooks.find(wb => wb.id === id && wb.position === 'guidelines'))
+        .map(id => db.worldBooks.find(wb => wb.id === id && wb.enabled !== false && wb.position === 'guidelines'))
         .filter(Boolean)
         .sort((a, b) => (a.depth || 100) - (b.depth || 100))
         .map(wb => wb.content).join('\n');
@@ -1937,25 +1937,25 @@ function generatePeekContentPrompt(char, appType, mainChatContext) {
 
 function generateBatchPeekContentPrompt(char, appTypes, mainChatContext) {
     const worldBooksLimitBreak = (char.worldBookIds || [])
-        .map(id => db.worldBooks.find(wb => wb.id === id && wb.position === 'limit_break'))
+        .map(id => db.worldBooks.find(wb => wb.id === id && wb.enabled !== false && wb.position === 'limit_break'))
         .filter(Boolean)
         .sort((a, b) => (a.depth || 100) - (b.depth || 100))
         .map(wb => wb.content).join('\n');
 
     const worldBooksBefore = (char.worldBookIds || [])
-        .map(id => db.worldBooks.find(wb => wb.id === id && wb.position === 'before'))
+        .map(id => db.worldBooks.find(wb => wb.id === id && wb.enabled !== false && wb.position === 'before'))
         .filter(Boolean)
         .sort((a, b) => (a.depth || 100) - (b.depth || 100))
         .map(wb => wb.content).join('\n');
 
     const worldBooksAfter = (char.worldBookIds || [])
-        .map(id => db.worldBooks.find(wb => wb.id === id && wb.position === 'after'))
+        .map(id => db.worldBooks.find(wb => wb.id === id && wb.enabled !== false && wb.position === 'after'))
         .filter(Boolean)
         .sort((a, b) => (a.depth || 100) - (b.depth || 100))
         .map(wb => wb.content).join('\n');
 
     const worldBooksGuidelines = (char.worldBookIds || [])
-        .map(id => db.worldBooks.find(wb => wb.id === id && wb.position === 'guidelines'))
+        .map(id => db.worldBooks.find(wb => wb.id === id && wb.enabled !== false && wb.position === 'guidelines'))
         .filter(Boolean)
         .sort((a, b) => (a.depth || 100) - (b.depth || 100))
         .map(wb => wb.content).join('\n');

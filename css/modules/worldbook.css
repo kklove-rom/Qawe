@@ -317,3 +317,79 @@
     gap: 10px;
     width: 100%;
 }
+
+/* --- 条目启用 / 停用 --- */
+.wb-enable-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 4px 0;
+    font-size: 14px;
+    color: #333;
+}
+
+.wb-enable-hint {
+    margin-top: 6px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #999;
+}
+
+.wb-entry-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex: none;
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid #e3e6ea;
+    background: #f7f8fa;
+    color: #8a94a0;
+    font-size: 11px;
+    line-height: 1.2;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.wb-entry-toggle.on {
+    background: rgba(66, 165, 245, 0.12);
+    border-color: rgba(66, 165, 245, 0.4);
+    color: #1e88e5;
+}
+
+.wb-entry-toggle:active {
+    transform: scale(0.96);
+}
+
+.wb-toggle-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    flex: none;
+}
+
+.wb-item-card.is-disabled .wb-icon-wrapper,
+.wb-item-card.is-disabled .wb-item-name {
+    opacity: 0.45;
+}
+
+.wb-disabled-mark {
+    font-size: 10px;
+    line-height: 1;
+    padding: 2px 5px;
+    border-radius: 4px;
+    background: #eef1f4;
+    color: #9aa3ad;
+    font-weight: 500;
+}
+
+.world-book-select-item.is-disabled label {
+    opacity: 0.55;
+}
+
+.wb-selector-row.is-disabled .wb-selector-icon,
+.wb-selector-row.is-disabled .wb-selector-name {
+    opacity: 0.5;
+}

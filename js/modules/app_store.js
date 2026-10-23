@@ -875,6 +875,8 @@
         getUserPersonas: function () { return call('getUserPersonas'); },
         // 读取世界书条目
         getWorldBooks: function () { return call('getWorldBooks'); },
+        // 读取主屏「预设」中适用于聊天的提示词段落
+        getPresets: function () { return call('getPresets'); },
         // 读取某角色聊天记录。limit 可选，取最近 N 条
         getChatHistory: function (charId, limit) { return call('getChatHistory', { charId: charId, limit: limit }); },
         // 向 404 某角色聊天注入消息。role: 'user'(用户/我) 或 'char'(角色)
@@ -1017,6 +1019,9 @@
             }
             case 'getWorldBooks':
                 return JSON.parse(JSON.stringify(db.worldBooks || []));
+            case 'getPresets':
+                if (typeof buildPresetPromptSection !== 'function') return null;
+                return buildPresetPromptSection('chat', null);
             case 'getChatHistory': {
                 const char = (db.characters || []).find(c => String(c.id) === String(args.charId));
                 if (!char) throw new Error('未找到该角色');

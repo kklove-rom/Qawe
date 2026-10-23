@@ -284,6 +284,7 @@ async function setupWorldBookApp() {
         document.getElementById('world-book-id').value = '';
         document.getElementById('world-book-category').value = '';
         document.getElementById('world-book-depth').value = '100';
+        document.getElementById('world-book-enabled').checked = true;
         document.querySelector('input[name="world-book-position"][value="before"]').checked = true;
         switchScreen('edit-world-book-screen');
     });
@@ -300,6 +301,8 @@ async function setupWorldBookApp() {
         const category = document.getElementById('world-book-category').value.trim();
         const position = document.querySelector('input[name="world-book-position"]:checked').value;
         const depth = parseInt(document.getElementById('world-book-depth').value) || 100;
+        const enabledInput = document.getElementById('world-book-enabled');
+        const enabled = enabledInput ? enabledInput.checked : true;
         const currentFolderId = wbPathStack[wbPathStack.length - 1].id;
 
         if (!name || !content) return showToast('名称和内容不能为空');
@@ -312,6 +315,7 @@ async function setupWorldBookApp() {
                 book.position = position;
                 book.category = category;
                 book.depth = depth;
+                book.enabled = enabled;
             }
         } else {
             db.worldBooks.push({
@@ -322,7 +326,8 @@ async function setupWorldBookApp() {
                 content, 
                 position, 
                 category,
-                depth
+                depth,
+                enabled
             });
         }
         await saveData();
@@ -331,13 +336,24 @@ async function setupWorldBookApp() {
         switchScreen('world-book-screen');
     });
 
-    worldBookListContainer.addEventListener('click', e => {
+    worldBookListContainer.addEventListener('click', async e => {
         const itemCard = e.target.closest('.wb-item-card');
         if (!itemCard) return;
 
         const id = itemCard.dataset.id;
         const item = db.worldBooks.find(wb => wb.id === id);
         if (!item) return;
+
+        // 点击条目上的启用/停用开关
+        const toggleBtn = e.target.closest('.wb-entry-toggle');
+        if (toggleBtn && item.type === 'entry' && !isWorldBookMultiSelectMode) {
+            e.stopPropagation();
+            item.enabled = item.enabled === false;
+            await saveData();
+            renderWorldBookList();
+            showToast(item.enabled === false ? `已停用「${item.name}」` : `已启用「${item.name}」`);
+            return;
+        }
 
         if (isWorldBookMultiSelectMode) {
             // 在多选模式下：
@@ -363,6 +379,8 @@ async function setupWorldBookApp() {
             worldBookContentInput.value = item.content;
             document.getElementById('world-book-category').value = item.category || '';
             document.getElementById('world-book-depth').value = item.depth !== undefined ? item.depth : 100;
+            const enabledCheckbox = document.getElementById('world-book-enabled');
+            if (enabledCheckbox) enabledCheckbox.checked = item.enabled !== false;
             
         // 安全地设置注入位置，如果不是 after 或 guidelines 或 limit_break 则默认为 before
         let positionValue = 'before';
@@ -422,13 +440,22 @@ function renderWorldBookList() {
         }
 
         const isFolder = item.type === 'folder';
+        const isEnabled = item.enabled !== false;
+        if (!isFolder && !isEnabled) card.classList.add('is-disabled');
         const iconHTML = isFolder 
             ? `<svg class="wb-folder-icon" viewBox="0 0 24 24" width="${wbViewMode === 'grid' ? 32 : 24}" height="${wbViewMode === 'grid' ? 32 : 24}"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>`
             : `<svg class="wb-entry-icon" viewBox="0 0 24 24" width="${wbViewMode === 'grid' ? 32 : 24}" height="${wbViewMode === 'grid' ? 32 : 24}"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>`;
 
+        // 条目启停开关（文件夹没有这个开关）
+        const toggleHTML = isFolder ? '' :
+            `<button class="wb-entry-toggle ${isEnabled ? 'on' : ''}" data-wb-toggle title="${isEnabled ? '停用该条目' : '启用该条目'}" aria-label="${isEnabled ? '停用该条目' : '启用该条目'}">
+                <span class="wb-toggle-dot"></span><span class="wb-toggle-text">${isEnabled ? '已启用' : '已停用'}</span>
+            </button>`;
+
         card.innerHTML = `
             <div class="wb-icon-wrapper">${iconHTML}</div>
             <div class="wb-item-name">${item.name}</div>
+            ${toggleHTML}
         `;
         
         container.appendChild(card);
@@ -477,9 +504,9 @@ function renderCategorizedWorldBookList(container, books, selectedIds, idPrefix)
                 ${categoryBooks.map(book => {
                     const isChecked = selectedIds.includes(book.id);
                     return `
-                        <li class="world-book-select-item">
+                        <li class="world-book-select-item ${book.enabled === false ? 'is-disabled' : ''}">
                             <input type="checkbox" class="item-checkbox" id="${idPrefix}-${book.id}" value="${book.id}" ${isChecked ? 'checked' : ''}>
-                            <label for="${idPrefix}-${book.id}">${book.name}</label>
+                            <label for="${idPrefix}-${book.id}">${book.name}${book.enabled === false ? '<span class="wb-disabled-mark">已停用</span>' : ''}</label>
                         </li>
                     `;
                 }).join('')}
@@ -567,9 +594,9 @@ function renderWorldBookSelectorList() {
 
     currentItems.forEach(item => {
         const row = document.createElement('div');
-        row.className = 'wb-selector-row';
-        
         const isFolder = item.type === 'folder';
+        row.className = 'wb-selector-row' + (!isFolder && item.enabled === false ? ' is-disabled' : '');
+        
         
         let iconSvg = '';
         if (isFolder) {
@@ -746,7 +773,8 @@ function importWorldBookDocument() {
                     content: row.content,
                     position: 'before',
                     category: '',
-                    depth: 100
+                    depth: 100,
+                    enabled: true
                 });
             });
             await saveData();

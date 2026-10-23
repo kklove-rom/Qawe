@@ -36,7 +36,7 @@
     <link rel="stylesheet" href="css/modules/peek.css?v=20261021c">
     <link rel="stylesheet" href="css/modules/moments.css?v=20261021c">
     <link rel="stylesheet" href="css/modules/search.css?v=20261021c">
-    <link rel="stylesheet" href="css/modules/worldbook.css?v=20261021c">
+    <link rel="stylesheet" href="css/modules/worldbook.css?v=20261023b">
     <link rel="stylesheet" href="css/modules/presets.css?v=20261023a">
     <link rel="stylesheet" href="css/modules/journal.css?v=20261021c">
     <link rel="stylesheet" href="css/modules/chat_archives.css?v=20261021c">
@@ -326,6 +326,17 @@
                 <div class="form-group">
                     <label for="world-book-depth">注入深度 (1-999)</label>
                     <input type="number" id="world-book-depth" min="1" max="999" value="100" placeholder="默认100，数值越小注入顺序越靠前" required>
+                </div>
+                <div class="form-group">
+                    <label>条目状态</label>
+                    <div class="wb-enable-row">
+                        <span>启用该条目</span>
+                        <label class="kkt-switch">
+                            <input type="checkbox" id="world-book-enabled" checked>
+                            <span class="kkt-slider"></span>
+                        </label>
+                    </div>
+                    <div class="wb-enable-hint">关闭后该条目不会注入 AI 上下文，但仍保留在列表中。</div>
                 </div>
                 <button type="submit" class="btn btn-primary">保存条目</button>
             </form>
@@ -2807,7 +2818,7 @@
 
 <!-- [3. 独立功能模块 (Plugins)] -->
 <script src="js/modules/sticker.js?v=20261021c"></script>   <!-- 表情包管理系统 -->
-<script src="js/modules/worldbook.js?v=20261023a"></script> <!-- 世界书设定集 -->
+<script src="js/modules/worldbook.js?v=20261023b"></script> <!-- 世界书设定集 -->
 <script src="js/modules/presets.js?v=20261023a"></script> <!-- 预设 App（SillyTavern 预设导入） -->
 <script src="js/modules/peek.js?v=20261023a"></script>      <!-- 偷看手机(相册/短信等) -->
 <script src="js/modules/journal.js?v=20261021c"></script>   <!-- 回忆日记生成 -->
@@ -2833,7 +2844,7 @@
 <script src="js/workshop.js?v=20261021c"></script> <!-- 绘图工坊模块 -->
 <script src="js/modules/community.js?v=20261021c"></script> <!-- 社区模块 -->
 <script src="js/modules/st_unlock.js?v=20261021c"></script> <!-- 酒馆解锁模块 -->
-<script src="js/modules/app_store.js?v=20261021q"></script> <!-- 应用商店模块 -->
+<script src="js/modules/app_store.js?v=20261023b"></script> <!-- 应用商店模块 -->
 
 <!-- [4. 程序入口] -->
 <script src="js/main.js?v=20261023a"></script>     <!-- 主入口：初始化(init)、全局事件监听 -->
