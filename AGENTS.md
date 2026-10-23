@@ -228,12 +228,12 @@ UwU.getAppInfo()
   - 事件委托：所有按钮用 `data-act`，在 `document` 的 click 里 switch。
   - 图标：`var I = { home, bell, mail, user, ... }`（`app.js` 约 72 行）。
   - 底栏：`function botnav()`（`app.js` 约 1050 行），三项 = 首页 / 私信 / 我的。
-    - 首页：原版内联 SVG `I.home`（24×24，`navBtn('home', I.home, 0)`）。1.0.4 曾改用 FontAwesome 图片，1.0.5 已恢复。
-    - 私信：FontAwesome `regular/envelope.svg`，用 CSS mask 渲染（`class="nav-icon-envelope"`），30×30、跟随底栏配色。
-    - 我的：FontAwesome `regular/user.svg` 图片，30×30（`class="nav-img-icon"`，深色模式反色）。
-  - **旧版代码保留在注释里**：`botnav()` 上方按项列出了上一版写法（如首页的 FontAwesome 图片写法），
+    - 首页：原版内联 SVG `I.home`（24×24，`navBtn('home', I.home, 0)`）。
+    - 私信：FontAwesome `regular/envelope.svg`，用 CSS mask 渲染（`class="nav-icon-envelope"`），24×24、跟随底栏配色。
+    - 我的：原版内联 SVG `I.user`（24×24，`navBtn('profile', I.user, 0)`）。
+  - **旧版代码保留在注释里**：`botnav()` 上方按项列出了上一版写法（首页 / 我的的 FontAwesome 图片写法），
     旧的 `I.home` / `I.user` 内联 SVG 也仍保留在 `I` 图标表里，回退时直接换回即可。
-  - 图标变更记录：1.0.1 之前私信用 `I.mail`；1.0.1 用 `IMG_DM` 图片；1.0.3 起改 FontAwesome 信封；1.0.4 首页曾改 FontAwesome 图片；1.0.5 首页恢复原版 SVG（当前状态）。
+  - 图标变更记录：1.0.1 之前私信用 `I.mail`；1.0.1 用 `IMG_DM` 图片；1.0.3 起改 FontAwesome 信封；1.0.4 首页/我的曾改 FontAwesome 图片；1.0.5 首页恢复；1.0.6 我的恢复（当前状态：首页 / 我的为原版 SVG，私信为 FontAwesome 信封，均 24×24）。
 - `style.css`：纯 CSS，主题变量在 `:root[data-theme]`。
 - `app.json`：清单（id/name/version/entry/icon）。
 - `_preview.html`：本地预览，注入 `window.__mockBridge` 假宿主。
